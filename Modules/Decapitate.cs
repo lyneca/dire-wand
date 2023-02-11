@@ -13,12 +13,12 @@ namespace Wand {
             base.OnInit();
 
             wand.targetedEnemy
-                .Then(wand.Flick(AxisDirection.Left, wand.module.gestureVelocityLarge),
-                    wand.Flick(AxisDirection.Right, wand.module.gestureVelocityLarge))
+                .Then(wand.Flick(AxisDirection.Left, wand.module.gestureVelocityLarge * 2),
+                    wand.Flick(AxisDirection.Right, wand.module.gestureVelocityLarge * 2))
                 .Do(SliceEntity, "Slice Entity");
             wand.targetedEnemy
-                .Then(wand.Flick(AxisDirection.Right, wand.module.gestureVelocityLarge), wand
-                    .Flick(AxisDirection.Left, wand.module.gestureVelocityLarge))
+                .Then(wand.Flick(AxisDirection.Right, wand.module.gestureVelocityLarge * 2), wand
+                    .Flick(AxisDirection.Left, wand.module.gestureVelocityLarge * 2))
                 .Do(SliceEntity, "Slice Entity");
         }
 

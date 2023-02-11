@@ -1,5 +1,6 @@
 ﻿using System.Linq;
 using ExtensionMethods;
+using GestureEngine;
 using ThunderRoad;
 using UnityEngine;
 
@@ -11,11 +12,7 @@ namespace Wand {
             base.OnInit();
             shieldEffectData = Catalog.GetData<EffectData>(shieldEffectId);
             wand.button
-                .Then(() => wand.holdingHand.Velocity().IsFacing(-wand.otherHand.Velocity())
-                            && wand.holdingHand.Velocity().IsFacing(wand.holdingHand.transform.position - wand.otherHand.transform.position)
-                            && wand.otherHand.Velocity().IsFacing(wand.otherHand.transform.position - wand.holdingHand.transform.position)
-                            && wand.holdingHand.Velocity().magnitude > wand.module.gestureVelocityNormal
-                            && wand.otherHand.Velocity().magnitude > wand.module.gestureVelocityNormal)
+                .Then(Gesture.Both.Palm(Direction.Together).Moving(Direction.Apart))
                 .Do(Shield);
         }
 

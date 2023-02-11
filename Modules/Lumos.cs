@@ -23,11 +23,11 @@ namespace Wand {
                                    && wand.tipViewVelocity.z < -wand.module.gestureVelocityLarge
                                    && !wand.localTipVelocity.MostlyZ(), "Flick Back")
                 .Do(() => ReturnLight(), "Return Light");
-            wand.button.Then(wand.Twist(90, SwirlDirection.Clockwise))
+            wand.button.Then(wand.Twist(90, SwirlDirection.CounterClockwise))
                 .And("Palm on tip",
                     () => (wand.otherHand.grip.position - wand.tip.position).sqrMagnitude < 0.1f * 0.1f)
                 .Do(ControlLight, "Light Control (Dim)");
-            wand.button.Then(wand.Twist(90, SwirlDirection.CounterClockwise))
+            wand.button.Then(wand.Twist(90, SwirlDirection.Clockwise))
                 .And("Palm on tip", () => (wand.otherHand.grip.position - wand.tip.position).sqrMagnitude < 0.1f * 0.1f)
                 .Do(ControlLight, "Light Control (Bright)")
                 .Then(() => !lightThrown

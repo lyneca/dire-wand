@@ -4,6 +4,7 @@ using System.Linq;
 using ThunderRoad;
 using UnityEngine;
 using ExtensionMethods;
+using JetBrains.Annotations;
 
 namespace GestureEngine;
 
@@ -37,7 +38,43 @@ public record struct GestureTarget(Vector3 Position, Quaternion Rotation, bool G
 //     Y,
 //     Z
 // }
-// public static class Extensions {
+public static class Extensions {
+    public static Vector3 ToVector(this Direction direction, Side side, PlayerRig rig) {
+        return direction.ToViewDir(side, rig, out var dir, out var fallback)
+            ? dir.ToWorldViewPlaneVector()
+            : fallback;
+    }
+    public static bool ToViewDir(
+        this Direction direction,
+        Side side,
+        PlayerRig rig,
+        out ViewDir viewDir,
+        out Vector3 fallback) {
+        fallback = Vector3.zero;
+        viewDir = ViewDir.Invalid;
+        viewDir = direction switch {
+            Direction.Backward => ViewDir.Back,
+            Direction.Forward => ViewDir.Forward,
+            Direction.Inwards => side == Side.Left ? ViewDir.Right : ViewDir.Left,
+            Direction.Outwards => side == Side.Left ? ViewDir.Left : ViewDir.Right,
+            Direction.Up => ViewDir.Up,
+            Direction.Down => ViewDir.Down,
+            _ => ViewDir.Invalid
+        };
+        if (viewDir != ViewDir.Invalid) return true;
+
+        var together
+            = (rig.GetHand(side.Other()).position - rig.GetHand(side).position)
+            .normalized;
+        fallback = direction switch {
+            Direction.Together => together,
+            Direction.Apart => -together,
+            _ => Vector3.zero
+        };
+        return false;
+    }
+
+}
 //     public static bool InDirection(this Vector3 vec, ViewDir direction, float amount = 0) {
 //         return vec.Mostly(direction.GetAxis()) && direction.Compare(vec, amount);
 //     }
@@ -140,6 +177,53 @@ public record struct GestureTarget(Vector3 Position, Quaternion Rotation, bool G
 // }
 
 /// <summary>
+/// A rig for the player. Defaults to the actual player rig and positions (for use in gesture testing),
+/// but can be set custom to display gestures elsewhere using GestureStep.UpdateTargets.
+/// </summary>
+public struct PlayerRig {
+    public GameObject left;
+    public GameObject right;
+    public Transform chest;
+    public Transform waist;
+    public Transform head;
+    public Vector3 root;
+
+    public PlayerRig() : this(Player.local.handLeft.ragdollHand.grip.gameObject,
+        Player.local.handRight.ragdollHand.grip.gameObject,
+        Player.currentCreature.ragdoll.rootPart.transform, Player.local.head.transform) { }
+
+
+    public Transform GetHand(Side side) => side switch {
+        Side.Left => left.transform,
+        Side.Right => right.transform,
+        _ => throw new ArgumentOutOfRangeException(nameof(side), side, null)
+    };
+
+    public PlayerRig(GameObject left, GameObject right, Vector3 root) {
+        this.left = left;
+        this.right = right;
+        this.root = root;
+        chest = null;
+        waist = null;
+        head = null;
+    }
+
+    public PlayerRig(GameObject left, GameObject right, Transform waist, Transform head = null) {
+        this.left = left;
+        this.right = right;
+        this.waist = waist;
+        this.head = head;
+        chest = null;
+        root = default;
+    }
+
+    public Vector3 Chest => chest?.position ?? Vector3.Lerp(Waist, Head, 0.5f);
+    public Vector3 Waist => waist?.position ?? root;
+    public Vector3 Head => head?.position ?? Waist + Vector3.up * 0.6f;
+}
+
+
+/// <summary>
 /// A gesture on one or both hands.
 /// </summary>
 public class Gesture {
@@ -163,7 +247,7 @@ public class Gesture {
     protected Direction thumb = Direction.Any;
     protected Direction point = Direction.Any;
     protected (Direction direction, float speed) moving;
-    protected Position position;
+    public Position position;
     protected bool still = false;
     protected bool? gripping = null;
     protected bool? triggering = null;
@@ -338,59 +422,80 @@ public class Gesture {
         };
     }
 
-    protected Vector3 CalculateOffset(Side side) {
+    protected Vector3 CalculateOffset(Side side, PlayerRig rig) {
         if (offsets == null) return Vector3.zero;
         var amount = Vector3.zero;
         for (var i = 0; i < offsets.Count; i++) {
-            amount += ToViewDir(side, offsets[i].direction).ToWorldViewPlaneVector() * offsets[i].amount;
+            amount += offsets[i].direction.ToVector(side, rig) * offsets[i].amount;
         }
 
         return amount;
     }
 
-    protected (Vector3 position, float radius) GetPosition(Side side) => position switch {
+    protected Vector3 AnimateDirection(Side side, Direction direction, float animation, PlayerRig rig) {
+        return (moving == default ? Vector3.zero : direction.ToVector(side, rig))
+               * (animation * 0.2f);
+    }
+
+    protected (Vector3 position, float radius) GetPosition(Side side, PlayerRig rig, float animation = 0) => position switch {
+        Position.Any or Position.Chest => (
+            rig.Chest
+            + new Vector3(side == Side.Right ? 0.23f : -0.23f, 0f, 0.5f).LocalToViewPlaneSpace()
+            + AnimateDirection(side, moving.direction, animation, rig), 0.4f),
         Position.Waist => (
-            Player.currentCreature.ragdoll.rootPart.transform.position
-            + new Vector3(side == Side.Right ? 0.25f : -0.25f, 0.1f, 0.3f).LocalToViewPlaneSpace(), 0.4f),
+            rig.Waist
+            + new Vector3(side == Side.Right ? 0.25f : -0.25f, 0.1f, 0.3f).LocalToViewPlaneSpace()
+            + AnimateDirection(side, moving.direction, animation, rig), 0.4f),
         Position.Face => (
-            Player.local.head.transform.position
-            + new Vector3(side == Side.Right ? 0.1f : -0.1f, 0, 0.1f).LocalToViewPlaneSpace(), 0.2f),
+            rig.Head
+            + new Vector3(side == Side.Right ? 0.1f : -0.1f, 0, 0.1f).LocalToViewPlaneSpace()
+            + AnimateDirection(side, moving.direction, animation, rig), 0.2f),
         _ => throw new ArgumentOutOfRangeException(nameof(position), position, null)
     };
 
-    protected Quaternion GetRotation(Side side, Vector3 position) {
+    protected Quaternion GetRotation(Side side, Vector3 position, PlayerRig rig) {
+        
+        // We will attempt to derive the forwards and up directions of the hand through educated guesses
         Vector3 forward = default, up = default;
+        
         float sideMult = side == Side.Left ? -1 : 1;
-        if (point != Direction.Any) {
-            forward = ToViewDir(side, point).ToWorldViewPlaneVector();
-        } else if (palm != Direction.Any && thumb != Direction.Any) {
-            forward = Vector3.Cross(ToViewDir(side, thumb).ToWorldViewPlaneVector(),
-                sideMult * ToViewDir(side, palm).ToWorldViewPlaneVector());
+        
+        // Whether we have fixes on any of the directions
+        bool hasPoint = point != Direction.Any;
+        bool hasPalm = palm != Direction.Any;
+        bool hasThumb = thumb != Direction.Any;
+        
+        // Try orienting by explicit or derived point direction
+        if (hasPoint) {
+            forward = point.ToVector(side, rig);
+        } else if (hasPalm && hasThumb) {
+            forward = Vector3.Cross(thumb.ToVector(side, rig), sideMult * palm.ToVector(side, rig));
         }
 
-        if (thumb != Direction.Any) {
-            up = ToViewDir(side, thumb).ToWorldViewPlaneVector();
-        } else if (palm != Direction.Any && point != Direction.Any) {
-            up = Vector3.Cross(sideMult * ToViewDir(side, palm).ToWorldViewPlaneVector(),
-                ToViewDir(side, point).ToWorldViewPlaneVector());
+        // Try orienting by explicit or derived thumb direction
+        if (hasThumb) {
+            up = thumb.ToVector(side, rig);
+        } else if (hasPalm && hasPoint) {
+            up = Vector3.Cross(sideMult * palm.ToVector(side, rig), point.ToVector(side, rig));
         }
 
-        if (palm != Direction.Any) {
-            var palmDir = ToViewDir(side, palm).ToWorldViewPlaneVector();
-            if (forward == default || up == default) {
-                if (forward != default) {
-                    up = Vector3.Cross(forward, palmDir) * sideMult;
-                } else if (up != default) {
-                    forward = Vector3.Cross(up, palmDir) * sideMult;
-                } else {
-                    var viewForward = ViewDir.Forward.ToWorldViewPlaneVector();
-                    var viewUp = ViewDir.Up.ToWorldViewPlaneVector();
-                    (forward, up) = palm switch {
-                        Direction.Up or Direction.Down => (viewForward,
-                            Vector3.Cross(palmDir, viewForward) * sideMult),
-                        _ => (viewUp, Vector3.Cross(viewUp, palmDir) * sideMult)
-                    };
-                }
+        // If we don't have a bi-axial fix and we know the palm direction
+        if (palm != Direction.Any && forward == default || up == default) {
+            var palmDir = palm.ToVector(side, rig);
+            if (forward != default) {
+                up = Vector3.Cross(forward, palmDir) * sideMult;
+            } else if (up != default) {
+                forward = Vector3.Cross(up, palmDir) * sideMult;
+            } else {
+                // If we literally only have palm, guess the rest based on what a hand would naturally do
+                var viewForward = ViewDir.Forward.ToWorldViewPlaneVector();
+                var viewUp = ViewDir.Up.ToWorldViewPlaneVector();
+                (forward, up) = palm switch {
+                    Direction.Up or Direction.Down => (viewForward,
+                        Vector3.Cross(palmDir, viewForward) * sideMult),
+                    Direction.Forward or Direction.Backward => (viewUp, Vector3.Cross(palmDir, viewUp) * sideMult),
+                    _ => (viewForward, Vector3.Cross(palmDir, viewForward) * sideMult)
+                };
             }
         }
 
@@ -405,20 +510,20 @@ public class Gesture {
         if (up != default) {
             return Quaternion.LookRotation(
                 Vector3.Cross(up,
-                    Vector3.Cross(position - Player.currentCreature.ragdoll.rootPart.transform.position, up)), up);
+                    Vector3.Cross(position - rig.Waist, up)), up);
         }
 
-        return Quaternion.LookRotation(position - Player.currentCreature.ragdoll.rootPart.transform.position);
+        return Quaternion.LookRotation(position - rig.Waist);
     }
 
     /// <summary>
     /// Returns a GestureTarget that can show where the hand needs to be located.
     /// </summary>
-    public GestureTarget? GetTarget(Side side) {
+    public GestureTarget? GetTarget(Side side, PlayerRig rig, float animation = 0) {
         if (ToSide(GetSide) == side || GetSide == HandSide.Both) {
-            (var pos, float rad) = GetPosition(side);
-            var offsetPosition = pos + CalculateOffset(side);
-            var rotation = GetRotation(side, offsetPosition);
+            (var pos, float rad) = GetPosition(side, rig, animation);
+            var offsetPosition = pos + CalculateOffset(side, rig);
+            var rotation = GetRotation(side, offsetPosition, rig);
             return new GestureTarget(offsetPosition, rotation, gripping ?? false, triggering ?? false, rad);
         }
 
@@ -444,42 +549,32 @@ public class Gesture {
         _ => throw new ArgumentOutOfRangeException(nameof(side), side, null)
     };
 
-    protected bool IsAtPosition(Vector3 handPos, Side side) {
-        (var target, float radius) = GetPosition(side);
-        return (handPos - (CalculateOffset(side) + target)).sqrMagnitude < radius * radius;
+    protected bool IsAtPosition(Vector3 handPos, Side side, PlayerRig rig) {
+        (var target, float radius) = GetPosition(side, rig);
+        return (handPos - (CalculateOffset(side, rig) + target)).sqrMagnitude < radius * radius;
     }
 
     protected Func<bool> Tester => () => ForValidHands(hand
-        => (position == Position.Any || IsAtPosition(hand.grip.position, hand.side))
+        => (position == Position.Any || IsAtPosition(hand.grip.position, hand.side, new PlayerRig()))
            && (!still || hand.LocalVelocity().magnitude < 0.5f)
            && (gripping == null || hand.Gripping() == gripping)
            && (triggering == null || hand.Triggering() == triggering)
            && (moving.direction == Direction.Any
-               || hand.LocalVelocity().WorldToViewPlaneSpace()
-                   .InDirection(ToViewDir(hand.side, moving.direction), moving.speed))
-           && (palm == Direction.Any
-               || hand.PalmDir.WorldToViewPlaneSpace().InDirection(ToViewDir(hand.side, palm)))
-           && (thumb == Direction.Any
-               || hand.ThumbDir.WorldToViewPlaneSpace().InDirection(ToViewDir(hand.side, thumb)))
-           && (point == Direction.Any
-               || hand.PointDir.WorldToViewPlaneSpace().InDirection(ToViewDir(hand.side, point)))
+               || CheckHandAgainst(hand, hand.LocalVelocity(), moving.direction, moving.speed))
+           && (palm == Direction.Any || CheckHandAgainst(hand, hand.PalmDir, palm))
+           && (thumb == Direction.Any || CheckHandAgainst(hand, hand.ThumbDir, thumb))
+           && (point == Direction.Any || CheckHandAgainst(hand, hand.PointDir, point))
     );
+
+    public bool CheckHandAgainst(RagdollHand hand, Vector3 source, Direction direction, float amount = 0) {
+        return direction.ToViewDir(hand.side, new PlayerRig(), out var dir, out var fallback)
+            ? source.WorldToViewPlaneSpace().InDirection(dir, amount)
+            : source.IsFacing(fallback, 30) && source.magnitude >= amount;
+    }
 
     /// <summary>
     /// Take a Side and Direction and return a ViewDir (player view-aligned direction)
     /// </summary>
-    protected static ViewDir ToViewDir(Side side, Direction direction) {
-        return direction switch {
-            Direction.Backward => ViewDir.Back,
-            Direction.Forward => ViewDir.Forward,
-            Direction.Inwards => side == Side.Left ? ViewDir.Right : ViewDir.Left,
-            Direction.Outwards => side == Side.Left ? ViewDir.Left : ViewDir.Right,
-            Direction.Up => ViewDir.Up,
-            Direction.Down => ViewDir.Down,
-            _ => throw new ArgumentOutOfRangeException(nameof(direction), direction, null)
-        };
-    }
-
     /// <summary>
     /// Get a human-readable description of the gesture.
     /// </summary>
@@ -495,6 +590,7 @@ public class Gesture {
                     Position.Any => null,
                     Position.Face => "beside face",
                     Position.Waist => "beside waist",
+                    Position.Chest => "near chest",
                     _ => throw new ArgumentOutOfRangeException()
                 },
                 offsets is { Count: > 0 }
@@ -551,6 +647,67 @@ public class Gesture {
     /// Add another gesture requirement to this gesture.
     /// </summary>
     public GestureStep And(GestureStep step) => new GestureStep(this).And(step);
+
+    public static Gesture FromString(string step) {
+        string[] constraints = step.Split(',');
+        Gesture gesture;
+        try {
+            gesture = constraints[0] switch {
+                "Left" => Left,
+                "Right" => Right,
+                "Both" => Both,
+                _ => throw new ArgumentOutOfRangeException()
+            };
+        } catch (ArgumentOutOfRangeException) {
+            return null;
+        }
+        for (var i = 1; i < constraints.Length; i++) {
+            switch (constraints[i]) {
+                case "Gripping":
+                    gesture = gesture.Gripping;
+                    continue;
+                case "Triggering":
+                    gesture = gesture.Triggering;
+                    continue;
+                case "Fist":
+                    gesture = gesture.Fist;
+                    continue;
+                case "Open":
+                    gesture = gesture.Open;
+                    continue;
+                case "Still":
+                    gesture = gesture.Still;
+                    continue;
+            }
+
+            string[] parts = constraints[i].Split(':');
+            if (parts.Length > 1)
+                switch (parts[0]) {
+                    case "At" when Enum.TryParse(parts[1], out Position position):
+                        gesture = gesture.At(position);
+                        continue;
+                    case "Moving" when Enum.TryParse(parts[1], out Direction direction):
+                        gesture = gesture.Moving(direction);
+                        continue;
+                    case "Offset" when Enum.TryParse(parts[1], out Direction direction):
+                        gesture = gesture.Offset(direction);
+                        continue;
+                    case "Offset" when parts.Length == 3 && Enum.TryParse(parts[1], out Direction direction) && float.TryParse(parts[2], out float amount):
+                        gesture = gesture.Offset(direction, amount);
+                        continue;
+                    case "Palm" when Enum.TryParse(parts[1], out Direction direction):
+                        gesture = gesture.Palm(direction);
+                        continue;
+                    case "Point" when Enum.TryParse(parts[1], out Direction direction):
+                        gesture = gesture.Point(direction);
+                        continue;
+                    case "Thumb" when Enum.TryParse(parts[1], out Direction direction):
+                        gesture = gesture.Thumb(direction);
+                        continue;
+                }
+        }
+        return gesture;
+    }
 }
 
 /// <summary>
@@ -564,6 +721,20 @@ public class GestureStep {
     public GestureStep(params Gesture[] gestures) {
         this.gestures = gestures.ToList();
     }
+
+    public static GestureStep FromString(string data) {
+        if (string.IsNullOrWhiteSpace(data)) return null;
+        data = data.Replace(" ", "");
+        string[] steps = data.Split(';');
+        var gestures = new Gesture[steps.Length];
+        for (var i = 0; i < steps.Length; i++) {
+            gestures[i] = Gesture.FromString(steps[i]);
+        }
+
+        return new GestureStep(gestures);
+    }
+
+    public string Description => ", ".Join(gestures.Select(gesture => gesture?.Description));
 
     /// <summary>
     /// Get a human-readable description of the gesture.
@@ -581,17 +752,17 @@ public class GestureStep {
     /// </summary>
     public static implicit operator NamedCondition(GestureStep step) {
         return new NamedCondition(
-            ToSentence(string.Join(" and ", step.gestures.Select(gesture => gesture.Description.ToLower()))),
+            ToSentence(string.Join(" and ", step.gestures.Select(gesture => gesture?.Description.ToLower()))),
             () => step.Tester());
     }
 
     /// <summary>
     /// Get the GestureTarget for a hand.
     /// </summary>
-    public GestureTarget? GetTargetForHand(Side side) {
+    public GestureTarget? GetTargetForHand(Side side, PlayerRig rig, float animation = 0) {
         GestureTarget? target = null;
         for (var i = 0; i < gestures.Count; i++) {
-            if (gestures[i].GetTarget(side) is GestureTarget eachTarget) {
+            if (gestures[i]?.GetTarget(side, rig, animation) is GestureTarget eachTarget) {
                 target = eachTarget;
             }
         }
@@ -607,37 +778,39 @@ public class GestureStep {
     /// <remarks>
     /// Deactivates the object if the hand is not used in the gesture.
     /// </remarks>
-    public void UpdateTargets(GameObject handLeft, GameObject handRight) {
-        if (GetTargetForHand(Side.Left) is GestureTarget left) {
-            handLeft.GetComponentInChildren<Animator>()?.SetFloat(Flex,
-                Mathf.Lerp(handLeft.GetComponentInChildren<Animator>().GetFloat(Flex), left.Gripping ? 1 : 0,
-                    Time.deltaTime * 10));
-            if (!handLeft.activeSelf) {
-                handLeft.SetActive(true);
-                handLeft.transform.SetPositionAndRotation(left.Position, left.Rotation);
+    public void UpdateTargets(PlayerRig rig, float animation = 0, Gesture.HandSide? forceGripping = null) {
+        if (GetTargetForHand(Side.Left, rig, animation) is GestureTarget left) {
+            rig.left.GetComponentInChildren<Animator>()?.SetFloat(Flex,
+                Mathf.Lerp(rig.left.GetComponentInChildren<Animator>().GetFloat(Flex),
+                    left.Gripping || forceGripping is Gesture.HandSide.Both or Gesture.HandSide.Left ? 1 : 0,
+                    rig.left.activeSelf ? Time.deltaTime * 10 : 1));
+            if (!rig.left.activeSelf) {
+                rig.left.SetActive(true);
+                rig.left.transform.SetPositionAndRotation(left.Position, left.Rotation);
             } else {
-                handLeft.transform.SetPositionAndRotation(
-                    Vector3.Lerp(handLeft.transform.position, left.Position, Time.deltaTime * 10),
-                    Quaternion.Slerp(handLeft.transform.rotation, left.Rotation, Time.deltaTime * 10));
+                rig.left.transform.SetPositionAndRotation(
+                    Vector3.Lerp(rig.left.transform.position, left.Position, Time.deltaTime * 10),
+                    Quaternion.Slerp(rig.left.transform.rotation, left.Rotation, Time.deltaTime * 10));
             }
         } else {
-            handLeft.SetActive(false);
+            rig.left.SetActive(false);
         }
 
-        if (GetTargetForHand(Side.Right) is GestureTarget right) {
-            handRight.GetComponentInChildren<Animator>()?.SetFloat(Flex,
-                Mathf.Lerp(handRight.GetComponentInChildren<Animator>().GetFloat(Flex), right.Gripping ? 1 : 0,
-                    Time.deltaTime * 10));
-            if (!handRight.activeSelf) {
-                handRight.SetActive(true);
-                handRight.transform.SetPositionAndRotation(right.Position, right.Rotation);
+        if (GetTargetForHand(Side.Right, rig, animation) is GestureTarget right) {
+            rig.right.GetComponentInChildren<Animator>()?.SetFloat(Flex,
+                Mathf.Lerp(rig.right.GetComponentInChildren<Animator>().GetFloat(Flex),
+                    right.Gripping || forceGripping is Gesture.HandSide.Both or Gesture.HandSide.Right ? 1 : 0,
+                    rig.right.activeSelf ? Time.deltaTime * 10 : 1));
+            if (!rig.right.activeSelf) {
+                rig.right.SetActive(true);
+                rig.right.transform.SetPositionAndRotation(right.Position, right.Rotation);
             } else {
-                handRight.transform.SetPositionAndRotation(
-                    Vector3.Lerp(handRight.transform.position, right.Position, Time.deltaTime * 10),
-                    Quaternion.Slerp(handRight.transform.rotation, right.Rotation, Time.deltaTime * 10));
+                rig.right.transform.SetPositionAndRotation(
+                    Vector3.Lerp(rig.right.transform.position, right.Position, Time.deltaTime * 10),
+                    Quaternion.Slerp(rig.right.transform.rotation, right.Rotation, Time.deltaTime * 10));
             }
         } else {
-            handRight.SetActive(false);
+            rig.right.SetActive(false);
         }
     }
 
@@ -660,14 +833,14 @@ public class GestureStep {
     /// <summary>
     /// Test all the gestures in this step.
     /// </summary>
-    public Func<bool> Tester => () => gestures.All(gesture => gesture.Test());
+    public Func<bool> Tester => () => gestures.All(gesture => gesture?.Test() ?? true);
         
     /// <summary>
     /// Return a SequenceTracker step testing the inverse of this gesture.
     /// </summary>
     public NamedCondition Not() {
         return new NamedCondition(
-            ToSentence("NOT " + string.Join(" and ", gestures.Select(gesture => gesture.Description.ToLower()))),
+            ToSentence("NOT " + string.Join(" and ", gestures.Select(gesture => gesture?.Description.ToLower()))),
             () => !Tester());
     }
 }
@@ -683,11 +856,14 @@ public enum Direction {
     Inwards,
     Outwards,
     Up,
-    Down
+    Down,
+    Together,
+    Apart
 }
 
 public enum Position {
     Any,
     Waist,
-    Face
+    Face,
+    Chest
 }

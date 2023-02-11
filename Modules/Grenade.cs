@@ -22,7 +22,7 @@ namespace Wand {
                                         || wand.otherHand.caster.spellInstance is SpellCastProjectile
                                         || wand.otherHand.caster.spellInstance is SpellCastLightning), "Touch Spell Orb")
                 .Do(GrabGrenade, "Grab Grenade")
-                .Then(() => wand.tipViewVelocity.z > wand.module.gestureVelocityLarge
+                .Then(() => wand.tipViewVelocity.z > wand.module.gestureVelocityNormal
                             && !wand.localTipVelocity.MostlyZ(), "Throw")
                 .Do(ThrowGrenade, "Throw Grenade");
             tipFollower = new GameObject();

@@ -166,6 +166,7 @@ namespace ExtensionMethods {
         public static float Sign(this float input) => input > 0 ? 1 : input < 0 ? -1 : 0;
         public static float Pow(this float input, float power) => Mathf.Pow(input, power);
         public static float Sqrt(this float input) => Mathf.Sqrt(input);
+        public static float Clamp01(this float input) => Mathf.Clamp01(input);
         public static float Clamp(this float input, float low, float high) => Mathf.Clamp(input, low, high);
         public static float Remap(this float input, float inLow, float inHigh, float outLow, float outHigh)
             => (input - inLow) / (inHigh - inLow) * (outHigh - outLow) + outLow;
@@ -274,6 +275,7 @@ namespace ExtensionMethods {
                 _ => throw new ArgumentOutOfRangeException(nameof(axis), axis, null)
             };
         }
+
         public static bool Mostly(this Vector3 vec, Axis axis) {
             return axis switch {
                 Axis.X => vec.MostlyX(),
@@ -301,6 +303,10 @@ namespace ExtensionMethods {
         /// Returns true if the vector's Z component is its largest component
         /// </summary>
         public static bool MostlyZ(this Vector3 vec) => vec.z.Abs() > vec.x.Abs() && vec.z.Abs() > vec.y.Abs();
+
+        public static string Join(this string delimiter, IEnumerable<object> strings) {
+            return string.Join(delimiter, strings.Where(str => str != null).ToList());
+        }
 
         public static string Join(this string delimiter, params object[] strings) {
             return string.Join(delimiter, strings.Where(str => str != null).ToList());
@@ -852,6 +858,13 @@ namespace ExtensionMethods {
 }
 
 static class Utils {
+    public static Vector3 ClosestPointOnLine(Vector3 origin, Vector3 direction, Vector3 point) {
+        direction.Normalize(); // this needs to be a unit vector
+        var v = point - origin;
+        float d = Vector3.Dot(v, direction);
+        return origin + direction * d;
+    }
+
     public static Color HexColor(float r, float g, float b, float intensity) {
         intensity = 2f.Pow(intensity);
         return new Color(r / 255f * intensity, g / 255f * intensity, b / 255f * intensity);
@@ -1812,7 +1825,8 @@ public enum ViewDir {
     Right,
     X,
     Y,
-    Z
+    Z,
+    Invalid
 }
 
 public enum EventStep {

@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using ExtensionMethods;
 using GestureEngine;
 using ThunderRoad;
@@ -6,7 +7,7 @@ using UnityEngine;
 
 namespace Wand {
     public class Hover : WandModule {
-        private float upwardForce = 3;
+        private float upwardForce = 1;
         private float hoverDuration = 10;
 
         private Coroutine floatRoutine;
@@ -44,8 +45,8 @@ namespace Wand {
         public void HoverEntity() {
             floatRoutine = wand.target.StartCoroutine(HoverRoutine(wand.target));
         }
+
         public void SlamEntity() {
-            wand.target.StopCoroutine(floatRoutine);
             if (pullRoutine != null) wand.target.StopCoroutine(pullRoutine);
             wand.target.Release();
             wand.target.Rigidbody().AddForce(Vector3.down * (4 * upwardForce * (wand.target.isCreature ? 30 : 1)),
@@ -54,12 +55,15 @@ namespace Wand {
 
         public IEnumerator HoverRoutine(Entity entity) {
             entity.Grab(false);
+            float startTime = Time.time;
             entity.Rigidbody().AddForce(Vector3.up * (upwardForce * (entity.isCreature ? 30 : 1)), ForceMode.VelocityChange);
             yield return Utils.LoopOver(amount => {
-                entity.SetPhysicModifier(entity, gravity: 0, drag: 10 * amount, angularDrag: 10 * amount);
-            }, 4);
-            yield return new WaitForSeconds(hoverDuration);
-            entity.Release();
+                entity.SetPhysicModifier(entity, gravity: 0, drag: 2 * amount, angularDrag: 3 * amount);
+            }, 2);
+            while (entity.grabbed && entity.creature?.isKilled != true && Time.time - startTime < hoverDuration)
+                yield return 0;
+            if (!entity.grabbed)
+                entity.Release();
         }
     }
 }

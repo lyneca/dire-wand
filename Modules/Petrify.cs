@@ -17,15 +17,15 @@ namespace Wand {
         }
 
         public void PetrifyEntity() {
-            wand.PlaySound(SoundType.Quough, wand.target.transform);
+            wand.PlaySound(SoundType.Quough, wand.target.Transform);
             if (wand.target?.creature is Creature creature) {
                 creature.gameObject.GetOrAddComponent<ParalysisModifier>().AddHandler(this);
-                wand.module.freezeEffectData.Spawn(wand.target.transform).Play();
+                wand.module.freezeEffectData.Spawn(wand.target.Transform).Play();
                 wand.canRestart = true;
             } else if (wand.target?.item is Item item) {
                 item.gameObject.GetComponent<BounceBehaviour>()?.Deactivate();
                 item.gameObject.GetOrAddComponent<FreezeModifier>().AddHandler(this);
-                wand.module.freezeEffectData.Spawn(wand.target.transform).Play();
+                wand.module.freezeEffectData.Spawn(wand.target.Transform).Play();
                 wand.canRestart = true;
             }
         }

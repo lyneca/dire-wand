@@ -32,7 +32,7 @@ public class Step {
     private Action onStateChange;
     private string actionName;
     private string name;
-    private string label;
+    public string label;
     private float lastChangedToTime;
     private float delay;
 

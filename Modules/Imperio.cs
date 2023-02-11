@@ -20,7 +20,7 @@ public class Imperio : WandModule {
         imperio.Then(wand.Offhand.Moving(Direction.Forward).Palm(Direction.Forward).Open)
             .Do(PacifyOrder, "Pacify Order");
 
-        imperio.Then(wand.Swirl(SwirlDirection.Clockwise))
+        imperio.Then(wand.Swirl(SwirlDirection.CounterClockwise))
             .Do(MimicOrder, "Mimic Order");
     }
 
@@ -52,7 +52,7 @@ public class Imperio : WandModule {
 
         line.Play();
         wand.module.castEffectData.Spawn(wand.tip).Play();
-        wand.module.targetEffectData.Spawn(wand.target.transform).Play();
+        wand.module.targetEffectData.Spawn(wand.target.Transform).Play();
         wand.target.creature.brain.currentTarget = creature;
     }
 

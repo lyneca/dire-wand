@@ -8,7 +8,7 @@ namespace Wand {
             base.OnInit();
 
             wand.targetedEnemy
-                .Then(wand.Swirl(SwirlDirection.CounterClockwise))
+                .Then(wand.Swirl(SwirlDirection.Clockwise))
                 .Do(PolymorphEntity, "Polymorph");
         }
 
@@ -18,7 +18,7 @@ namespace Wand {
                 return;
             }
             
-            wand.PlaySound(SoundType.Hagh, wand.target.transform);
+            wand.PlaySound(SoundType.Hagh, wand.target.Transform);
 
             wand.target.creature.handLeft?.TryRelease();
             wand.target.creature.handRight?.TryRelease();

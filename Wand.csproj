@@ -35,6 +35,9 @@
         <Reference Include="DebugViz">
           <HintPath>D:\Games\Oculus\Software\Software\warpfrog-blade-sorcery\BladeAndSorcery_Data\StreamingAssets\Mods\DebugViz\DebugViz.dll</HintPath>
         </Reference>
+        <Reference Include="Newtonsoft.Json">
+          <HintPath>D:\Games\Oculus\Software\Software\warpfrog-blade-sorcery\BladeAndSorcery_Data\Managed\Newtonsoft.Json.dll</HintPath>
+        </Reference>
         <Reference Include="System" />
         <Reference Include="System.Core" />
         <Reference Include="System.Xml.Linq" />
@@ -83,12 +86,14 @@
     <ItemGroup>
         <Compile Include="Gesture.cs" />
         <Compile Include="ItemModuleWand.cs" />
+        <Compile Include="Modules\Basic.cs" />
         <Compile Include="Modules\Crush.cs" />
         <Compile Include="Modules\Decapitate.cs" />
         <Compile Include="Modules\Expelliarmus.cs" />
         <Compile Include="Modules\Fireball.cs" />
         <Compile Include="Modules\Flipendo.cs" />
         <Compile Include="Modules\Force.cs" />
+        <Compile Include="Modules\Gather.cs" />
         <Compile Include="Modules\Gemini.cs" />
         <Compile Include="Modules\Grapple.cs" />
         <Compile Include="Modules\Grenade.cs" />
@@ -101,9 +106,11 @@
         <Compile Include="Modules\Petrify.cs" />
         <Compile Include="Modules\Polymorph.cs" />
         <Compile Include="Modules\Protego.cs" />
+        <Compile Include="Modules\Scale.cs" />
         <Compile Include="Modules\Sectumsempra.cs" />
         <Compile Include="Modules\SlowZone.cs" />
         <Compile Include="Modules\Spongify.cs" />
+        <Compile Include="Modules\Strip.cs" />
         <Compile Include="PID.cs" />
         <Compile Include="Properties\AssemblyInfo.cs" />
         <Compile Include="SequenceTracker.cs" />

@@ -29,6 +29,7 @@ namespace Wand {
 
         public override void OnInit() {
             base.OnInit();
+            EventManager.onItemDespawn += item => item.ClearPhysicModifiers();
             bubbleEffectData = Catalog.GetData<EffectData>(bubbleEffectId);
             bubbleEnterEffectData = Catalog.GetData<EffectData>(bubbleEnterEffectId);
             wand.button

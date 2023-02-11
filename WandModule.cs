@@ -17,6 +17,7 @@ namespace Wand {
         public List<string> videoAddresses;
         public string title;
         public string description;
+        public string[] gesture;
         public SpellType type;
         public Color color;
 

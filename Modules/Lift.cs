@@ -54,12 +54,12 @@ public class Lift : WandModule {
             return;
         }
             
-        wand.PlaySound(SoundType.Legh, wand.target.transform);
+        wand.PlaySound(SoundType.Legh, wand.target.Transform);
             
         wand.target.item?.gameObject.GetComponent<FreezeModifier>()?.Clear();
 
         wand.target.Release();
-        wand.target.Grab();
+        wand.target.Grab(true, obj => wand.item.Haptic(obj.Rigidbody().velocity.magnitude.RemapClamp(0, 20f, 0, 0.5f)));
 
         float modifier = Mathf.Sqrt(wand.target.Rigidbody().mass);
         jointPoint.transform.position = wand.target.Center();
@@ -69,6 +69,6 @@ public class Lift : WandModule {
                             ?? wand.target.Rigidbody().transform.rotation);
         joint.connectedAnchor = wand.target.Rigidbody().centerOfMass;
         wand.target.throwOnRelease = true;
-        liftEffectData.Spawn(wand.target.transform).Play();
+        liftEffectData.Spawn(wand.target.Transform).Play();
     }
 }
