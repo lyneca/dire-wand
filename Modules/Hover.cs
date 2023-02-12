@@ -17,20 +17,25 @@ namespace Wand {
             base.OnInit();
 
             wand.OnTargetEntity(state => {
+                var hover = wand.Offhand.Moving(Direction.Up).Palm(Direction.Up).Gripping;
+                var slam = wand.Offhand.Moving(Direction.Down).Palm(Direction.Down).Gripping;
 
                 var hovered = state
-                    .Then(wand.Offhand.Moving(Direction.Up).Palm(Direction.Up).Gripping)
+                    .Then(hover)
                     .Do(HoverEntity, "Hover Entity");
                 
                 var pulled = hovered
                     .Then(wand.Offhand.Moving(Direction.Backward).Gripping)
                     .Do(PullEntity, "Pull Entity");
                 
+                state
+                    .Then(slam)
+                    .Do(SlamEntity, "Slam Entity");
                 hovered
-                    .Then(wand.Offhand.Moving(Direction.Down).Palm(Direction.Down).Gripping)
+                    .Then(slam)
                     .Do(SlamEntity, "Slam Entity");
                 pulled
-                    .Then(wand.Offhand.Moving(Direction.Down).Palm(Direction.Down).Gripping)
+                    .Then(slam)
                     .Do(SlamEntity, "Slam Entity");
             });
 
