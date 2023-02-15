@@ -1,23 +1,19 @@
 ﻿using ExtensionMethods;
+using GestureEngine;
 using ThunderRoad;
 using UnityEngine;
 
 namespace Wand; 
 
-public class Flipendo : WandModule {
+public class Pull : WandModule {
     public float creatureForce = 15f;
     public float itemForce = 10f;
     public override void OnInit() {
         base.OnInit();
-        wand.button
-            .Then(wand.Brandish())
-            .Do(() => {
-                var entity = wand.TargetEntity(wand.module.shoveArgs);
-                wand.RunAfter(() => ShoveEntity(entity), 0.3f);
-            }, "Shove Entity");
+        wand.OnTargetEntity(step => step.Then(wand.Offhand.Palm(Direction.Down).Gripping.Moving(Direction.Backward)).Do(() => PullEntity(wand.target)));
     }
 
-    public void ShoveEntity(Entity entity) {
+    public void PullEntity(Entity entity) {
         if (entity == null) {
             wand.Reset();
             return;
@@ -27,7 +23,7 @@ public class Flipendo : WandModule {
             
         wand.PlaySound(SoundType.Foll, entity.Transform);
 
-        var direction = (entity.Center() - wand.tip.position).normalized + Vector3.up * 0.5f;
+        var direction = (wand.tip.position - entity.Center()).normalized + Vector3.up * 0.5f;
         if (entity.creature is Creature creature) {
             creature.TryPush(Creature.PushType.Magic, direction * creatureForce, 4);
             creature.ragdoll.SetState(Ragdoll.State.Destabilized);

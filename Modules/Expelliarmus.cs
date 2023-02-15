@@ -11,14 +11,15 @@ public class Expelliarmus : WandModule {
         base.OnInit();
 
         wand.targetedEnemy
-            .Then(wand.Offhand.Gripping.Moving(Direction.Backward, wand.module.gestureVelocitySmall))
+            .Then(wand.Offhand.Gripping.Moving(Direction.Backward, wand.module.gestureVelocitySmall).Palm(Direction.Up))
             .Do(DisarmEntity, "Disarm Entity");
         wand.targetedItem
-            .Then(wand.Offhand.Gripping.Moving(Direction.Backward, wand.module.gestureVelocitySmall))
+            .Then(wand.Offhand.Gripping.Moving(Direction.Backward, wand.module.gestureVelocitySmall).Palm(Direction.Up))
             .Do(DisarmEntity, "Pull Item");
     }
 
     public void DisarmEntity() {
+        MarkCasted();
         var heldItem = wand.target?.creature is Creature creature
             ? creature.handRight?.grabbedHandle?.item ?? wand.target.creature.handLeft?.grabbedHandle?.item
             : wand.target?.handler?.item;

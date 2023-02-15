@@ -28,6 +28,8 @@ public class Basic : WandModule {
         var target = wand.GetTargetEntity(direction, preferLive: true, preferCreature: true);
         if (target == null) return;
         
+        MarkCasted();
+        
         wand.item.Haptic(0.5f);
         var effect = fireEffectData.Spawn(wand.transform);
         effect.SetMainGradient(gradient);

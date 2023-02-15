@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
+using System.Runtime.InteropServices;
 using ExtensionMethods;
 using GestureEngine;
 using ThunderRoad;
@@ -10,7 +12,80 @@ using UnityEngine.UI;
 using UnityEngine.Video;
 using Object = UnityEngine.Object;
 
-namespace Wand; 
+namespace Wand;
+
+public class TutorialSave : CustomData {
+    public static TutorialSave _local;
+
+    public static TutorialSave local => _local ?? Load();
+
+    public int currentTier = 0;
+    public Dictionary<string, bool>[] spellsCast;
+    public int numTiers;
+
+    public TutorialSave() {
+        var spells = Catalog.GetData<ItemData>("Wand").GetModule<ItemModuleWand>().spells
+            .Where(spell => spell.showInTutorial).ToList();
+        foreach (var spell in spells) {
+            if (spell.tier > numTiers) numTiers = spell.tier;
+        }
+
+        numTiers++;
+
+        spellsCast = new Dictionary<string, bool>[numTiers];
+        for (var i = 0; i < spellsCast.Length; i++) {
+            spellsCast[i] = new Dictionary<string, bool>();
+        }
+
+        foreach (var spell in spells) {
+            spellsCast[spell.tier][spell.title] = false;
+        }
+    }
+
+    public static void Save() {
+        DataManager.SaveLocalFile(local, "wand.sav");
+    }
+
+    public static TutorialSave Load() {
+        try {
+            _local = DataManager.LoadLocalFile<TutorialSave>("wand.sav");
+        } catch {
+            _local = null;
+        }
+        if (_local != null) return _local;
+        
+        _local = new TutorialSave();
+        Refresh();
+        Save();
+
+        return _local;
+    }
+
+    public static void Cast(int tier, string title) {
+        if (local.spellsCast[tier].TryGetValue(title, out bool cast) && cast) return;
+        local.spellsCast[tier][title] = true;
+        Refresh();
+        Save();
+    }
+
+    public static bool HasCast(string title) {
+        foreach (var dict in local.spellsCast) {
+            if (dict.TryGetValue(title, out bool cast)) return cast;
+        }
+
+        return false;
+    }
+
+    public static void Refresh() {
+        if (local.currentTier >= local.numTiers - 1) return;
+        foreach (var kvp in local.spellsCast[local.currentTier]) {
+            if (!kvp.Value) return;
+        }
+
+        local.currentTier++;
+        DisplayMessage.instance.ShowMessage(new DisplayMessage.MessageData($"Tier {local.currentTier + 1} Dire Wand spell tutorials unlocked.", "", "", "", 1));
+    }
+}
 
 public class Tutorial : WandModule {
     private static readonly int BaseColor = Shader.PropertyToID("BaseColor");
@@ -51,17 +126,21 @@ public class Tutorial : WandModule {
 
         orbs = new List<TutorialOrb>();
         tutorials ??= new List<TutorialData>();
-        foreach (var spell in wand.spells) {
-            var spellTitle = spell.title ?? spell.GetType().Name;
-            tutorials.Add(new TutorialData {
-                id = "Tutorial: " + spellTitle,
-                title = spellTitle,
-                description = spell.description,
-                color = spell.color,
-                iconAddress = spell.iconAddress,
-                gesture = spell.gesture,
-                videoAddresses = new List<string>(spell.videoAddresses ?? new List<string>())
-            });
+        for (var i = 0; i < TutorialSave.local.numTiers; i++) {
+            foreach (var spell in wand.spells) {
+                if (spell.tier != i || !spell.showInTutorial) continue;
+                string spellTitle = spell.title ?? spell.GetType().Name;
+                tutorials.Add(new TutorialData {
+                    id = "Tutorial: " + spellTitle,
+                    title = spellTitle,
+                    description = spell.description,
+                    color = spell.color,
+                    iconAddress = spell.iconAddress,
+                    tier = spell.tier,
+                    gesture = spell.gesture,
+                    videoAddresses = new List<string>(spell.videoAddresses ?? new List<string>())
+                });
+            }
         }
 
         rows = tutorials.Count / cols;
@@ -86,6 +165,7 @@ public class Tutorial : WandModule {
     }
 
     public IEnumerator Open() {
+        MarkCasted();
         var i = 0;
         if (handLeft) Object.Destroy(handLeft);
         if (handRight) Object.Destroy(handRight);
@@ -176,7 +256,7 @@ public class Tutorial : WandModule {
                 if (Physics.Raycast(wand.tipRay, out var hit, 5,
                         LayerMask.GetMask(LayerName.DroppedItem.ToString()),
                         QueryTriggerInteraction.Collide)
-                    && hit.collider.GetComponentInParent<TutorialOrb>() is TutorialOrb newOrb) {
+                    && hit.collider.GetComponentInParent<TutorialOrb>() is { locked: false } newOrb) {
                     selectedOrb = newOrb;
                 } else {
                     selectedOrb = null;
@@ -206,8 +286,9 @@ public class Tutorial : WandModule {
         if (!(Physics.Raycast(wand.tipRay, out var hit, 5,
                   LayerMask.GetMask(LayerName.DroppedItem.ToString()),
                   QueryTriggerInteraction.Collide)
-              && hit.collider.GetComponentInParent<TutorialOrb>()?.data is TutorialData data)) return;
-            
+              && hit.collider.GetComponentInParent<TutorialOrb>() is
+                  { data: TutorialData data, locked: false })) return;
+
         OnSelect(data);
     }
 
@@ -234,8 +315,9 @@ public class Tutorial : WandModule {
               * lookDir.normalized
               * distance
               + Vector3.up * (row * 0.5f);
-            
-        orb.material?.SetColor(BaseColor, orb.data.color * (orb.highlighted ? 5 : 1));
+
+        orb.material?.SetColor(BaseColor,
+            orb.data.color * (orb.locked ? 0f : (orb.highlighted ? 8 : 1) * (orb.uncast ? 0.2f : 1)));
             
         orb.transform.position = Vector3.Lerp(orb.transform.position, position, Time.deltaTime * 10);
         orb.transform.rotation = Quaternion.Slerp(orb.transform.rotation,
@@ -317,6 +399,8 @@ public class TutorialWindow : MonoBehaviour {
 public class TutorialOrb : MonoBehaviour {
     public TutorialData data;
     public bool highlighted = false;
+    public bool uncast = false;
+    public bool locked = false;
     public Material material;
 }
     
@@ -338,6 +422,7 @@ public class TutorialData {
 
     private static readonly int BaseTexture = Shader.PropertyToID("BaseTexture");
     private static readonly int BaseColor = Shader.PropertyToID("BaseColor");
+    public int tier;
 
     public void Load(Tutorial module) {
         this.module = module;
@@ -387,6 +472,9 @@ public class TutorialData {
         parent.transform.localScale = Vector3.one * 0.03f;
             
         var link = parent.AddComponent<TutorialOrb>();
+        link.uncast = !TutorialSave.HasCast(title);
+        if (TutorialSave.local.currentTier < tier)
+            link.locked = true;
         link.material = orb.GetComponent<MeshRenderer>().material;
         link.data = this;
         return link;

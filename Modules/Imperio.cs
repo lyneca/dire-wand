@@ -12,7 +12,7 @@ public class Imperio : WandModule {
     public override void OnInit() {
         imperio = wand.targetedEnemy
             .Then(wand.Offhand.Palm(Direction.Forward).Point(Direction.Up).Fist)
-            .Do(() => wand.RunAfter(() => ControlEntity(wand), 0.3f));
+            .Do(() => wand.RunAfter(ControlEntity, 0.3f));
 
         imperio.Then(wand.Brandish())
             .Do(AttackOrder, "Attack Order");
@@ -24,11 +24,12 @@ public class Imperio : WandModule {
             .Do(MimicOrder, "Mimic Order");
     }
 
-    public static void ControlEntity(WandBehaviour wand) {
+    public void ControlEntity() {
         if (wand.target?.creature == null) {
             wand.Reset();
             return;
         }
+        MarkCasted();
 
         wand.target.creature.brain.isManuallyControlled = false;
 
@@ -40,6 +41,7 @@ public class Imperio : WandModule {
             wand.Reset();
             return;
         }
+        MarkCasted();
             
         var creature = Utils.TargetCreature(wand.tipRay, 15, 40, null, false);
         if (creature == null) return;

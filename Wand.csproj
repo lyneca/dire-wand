@@ -32,6 +32,9 @@
         <WarningLevel>4</WarningLevel>
     </PropertyGroup>
     <ItemGroup>
+        <Reference Include="0Harmony">
+          <HintPath>D:\Games\Oculus\Software\Software\warpfrog-blade-sorcery\BladeAndSorcery_Data\StreamingAssets\Mods\Wand\0Harmony.dll</HintPath>
+        </Reference>
         <Reference Include="DebugViz">
           <HintPath>D:\Games\Oculus\Software\Software\warpfrog-blade-sorcery\BladeAndSorcery_Data\StreamingAssets\Mods\DebugViz\DebugViz.dll</HintPath>
         </Reference>
@@ -87,8 +90,11 @@
         <Compile Include="Gesture.cs" />
         <Compile Include="ItemModuleWand.cs" />
         <Compile Include="Modules\Basic.cs" />
+        <Compile Include="Modules\Cantrip.cs" />
         <Compile Include="Modules\Crush.cs" />
+        <Compile Include="Modules\Debug.cs" />
         <Compile Include="Modules\Decapitate.cs" />
+        <Compile Include="Modules\Detonate.cs" />
         <Compile Include="Modules\Expelliarmus.cs" />
         <Compile Include="Modules\Fireball.cs" />
         <Compile Include="Modules\Flipendo.cs" />
@@ -102,12 +108,14 @@
         <Compile Include="Modules\Lift.cs" />
         <Compile Include="Modules\Lightning.cs" />
         <Compile Include="Modules\Lumos.cs" />
-        <Compile Include="Modules\OrbitalLaser.cs" />
+        <Compile Include="Modules\Thunderbolt.cs" />
         <Compile Include="Modules\Petrify.cs" />
         <Compile Include="Modules\Polymorph.cs" />
         <Compile Include="Modules\Protego.cs" />
+        <Compile Include="Modules\Pull.cs" />
         <Compile Include="Modules\Scale.cs" />
         <Compile Include="Modules\Sectumsempra.cs" />
+        <Compile Include="Modules\Slow.cs" />
         <Compile Include="Modules\SlowZone.cs" />
         <Compile Include="Modules\Spongify.cs" />
         <Compile Include="Modules\Strip.cs" />

@@ -339,7 +339,7 @@ public class Gesture {
     /// <summary>
     /// Test whether the hand is moving in a direction.
     /// </summary>
-    public Gesture Moving(Direction direction, float velocity = 3) {
+    public Gesture Moving(Direction direction, float velocity = 2) {
         moving = (direction, velocity);
         return this;
     }

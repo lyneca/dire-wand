@@ -1,6 +1,9 @@
 ﻿<wpf:ResourceDictionary xml:space="preserve" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:s="clr-namespace:System;assembly=mscorlib" xmlns:ss="urn:shemas-jetbrains-com:settings-storage-xaml" xmlns:wpf="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
 	<s:Boolean x:Key="/Default/AddReferences/RecentPaths/=D_003A_005CGames_005COculus_005CSoftware_005CSoftware_005Cwarpfrog_002Dblade_002Dsorcery_005CBladeAndSorcery_005FData_005CManaged_005CThunderRoad_002Edll/@EntryIndexedValue">True</s:Boolean>
 	<s:Boolean x:Key="/Default/AddReferences/RecentPaths/=D_003A_005CGames_005COculus_005CSoftware_005CSoftware_005Cwarpfrog_002Dblade_002Dsorcery_005CBladeAndSorcery_005FData_005CStreamingAssets_005CMods_005CDebugViz_005CDebugViz_002Edll/@EntryIndexedValue">True</s:Boolean>
+	<s:Boolean x:Key="/Default/AddReferences/RecentPaths/=D_003A_005CGames_005COculus_005CSoftware_005CSoftware_005Cwarpfrog_002Dblade_002Dsorcery_005CBladeAndSorcery_005FData_005CStreamingAssets_005CMods_005CWand_005C0Harmony_002Edll/@EntryIndexedValue">True</s:Boolean>
 	<s:String x:Key="/Default/CodeInspection/Highlighting/AnalysisEnabled/@EntryValue">SOLUTION</s:String>
 	<s:Int64 x:Key="/Default/Environment/Hierarchy/Build/BuildTool/MsbuildVersion/@EntryValue">1114112</s:Int64>
-	<s:String x:Key="/Default/Environment/Hierarchy/Build/BuildTool/CustomBuildToolPath/@EntryValue">C:\Program Files\JetBrains\JetBrains Rider 2022.2.3\tools\MSBuild\Current\Bin\MSBuild.exe</s:String></wpf:ResourceDictionary>
+	<s:String x:Key="/Default/Environment/Hierarchy/Build/BuildTool/CustomBuildToolPath/@EntryValue">C:\Program Files\JetBrains\JetBrains Rider 2022.2.3\tools\MSBuild\Current\Bin\MSBuild.exe</s:String>
+	<s:Boolean x:Key="/Default/UserDictionary/Words/=Cantrip/@EntryIndexedValue">True</s:Boolean>
+	<s:Boolean x:Key="/Default/UserDictionary/Words/=interactor/@EntryIndexedValue">True</s:Boolean></wpf:ResourceDictionary>

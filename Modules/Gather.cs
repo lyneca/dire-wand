@@ -12,17 +12,18 @@ public class Gather : WandModule {
     public override void OnInit() {
         base.OnInit();
         wand.trigger.Then(Gesture.Both
-                .Palm(Direction.Together)
+                // .Palm(Direction.Together)
                 .Moving(Direction.Together))
             .Do(Collect);
     }
 
     private void Collect() {
+        MarkCasted();
         wand.StartCoroutine(CollectRoutine());
     }
 
     private IEnumerator CollectRoutine() {
-        var collectPoint = Hands.Midpoint() + Hands.AveragePoint() * 5;
+        var collectPoint = wand.tipRay.GetPoint(5);
 
         int index = 0;
         List<Entity> entities = new();

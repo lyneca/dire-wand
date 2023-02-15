@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using ExtensionMethods;
 using UnityEngine;
 
 namespace SequenceTracker;
@@ -35,6 +36,8 @@ public class Step {
     public string label;
     private float lastChangedToTime;
     private float delay;
+    private bool repeatable;
+    private float repeatDelay;
 
     /// <summary>
     /// Create the root node of a sequence.
@@ -115,6 +118,12 @@ public class Step {
         children = new List<Step>();
     }
 
+    public Step Repeatable(bool repeatable = true, float delay = 0.3f) {
+        this.repeatable = repeatable;
+        repeatDelay = delay;
+        return this;
+    }
+
     /// <summary>
     /// Add a step in the sequence.
     /// </summary>
@@ -178,9 +187,34 @@ public class Step {
     /// <param name="conditions">
     /// One or more NamedConditions, a tuple of string name and Func&lt;bool&gt; tester function
     /// </param>
+    public Step ThenRepeatable(params NamedCondition[] conditions) {
+        if (conditions.Length == 0) return this;
+        var next = Then(conditions[0].Item2, conditions[0].Item1).Repeatable();
+        return conditions.Length > 1 ? next.Then(conditions.Skip(1).ToArray()) : next;
+    }
+    
+    /// <summary>
+    /// Add one or more child steps.
+    /// </summary>
+    /// <param name="conditions">
+    /// One or more NamedConditions, a tuple of string name and Func&lt;bool&gt; tester function
+    /// </param>
     public Step Then(params NamedCondition[] conditions) {
         if (conditions.Length == 0) return this;
         var next = Then(conditions[0].Item2, conditions[0].Item1);
+        return conditions.Length > 1 ? next.Then(conditions.Skip(1).ToArray()) : next;
+    }
+
+    /// <summary>
+    /// Add one or more sets of child steps. Marks the repeatable label on the first step.
+    /// </summary>
+    /// <param name="conditions">
+    /// One or more NamedConditionSets, a list of NamedConditions.
+    /// </param>
+    /// <returns></returns>
+    public Step ThenRepeatable(params NamedConditionSet[] conditions) {
+        if (conditions.Length == 0) return this;
+        var next = ThenRepeatable(conditions[0].Item1, conditions[0].Item2);
         return conditions.Length > 1 ? next.Then(conditions.Skip(1).ToArray()) : next;
     }
 
@@ -195,6 +229,22 @@ public class Step {
         if (conditions.Length == 0) return this;
         var next = Then(conditions[0].Item1, conditions[0].Item2);
         return conditions.Length > 1 ? next.Then(conditions.Skip(1).ToArray()) : next;
+    }
+
+    /// <summary>
+    /// Add a sequence of child steps under one name. Toggles the repeatable flag on the first condition.
+    /// </summary>
+    /// <param name="name">Human-readable name of the step</param>
+    /// <param name="conditions">Set of conditions</param>
+    public Step ThenRepeatable(string name = "", params Func<bool>[] conditions) {
+        var list = new Queue<Func<bool>>(conditions);
+        var next = Then(list.Dequeue(), name).Repeatable();
+
+        while (list.Any()) {
+            next = next.Then(list.Dequeue());
+        }
+
+        return next;
     }
 
     /// <summary>
@@ -250,6 +300,10 @@ public class Step {
     protected bool Check() { return condition.Evaluate(); }
 
     protected void DoUpdate() {
+        if (skipTo?.repeatable == true && Time.time - lastChangedToTime > skipTo.repeatDelay && AtEnd() && !skipTo.Check()) {
+            skipTo.Reset();
+            skipTo = null;
+        }
         if (skipTo == null && (parent == null || Time.time - parent.lastChangedToTime > delay)) {
             for (var index = 0; index < children.Count; index++) {
                 var child = children[index];
@@ -258,15 +312,14 @@ public class Step {
                     if (child.condition.runOnChange)
                         onStateChange?.Invoke();
                     skipTo = child;
+                    child.condition.Reset();
                     lastChangedToTime = Time.time;
                     break;
                 }
             }
         }
 
-        if (skipTo != null) {
-            skipTo.DoUpdate();
-        }
+        skipTo?.DoUpdate();
     }
 
     /// <summary>

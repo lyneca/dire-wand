@@ -23,6 +23,7 @@ public class Scale : WandModule {
     }
 
     protected void ScaleEntity(float scale) {
+        MarkCasted();
         ScaleHelper scaleHelper =
             wand.target.isCreature
                 ? wand.target.creature.gameObject.GetOrAddComponent<CreatureScaleHelper>()

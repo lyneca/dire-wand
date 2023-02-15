@@ -2,7 +2,7 @@
 using SequenceTracker;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
+using HarmonyLib;
 using ExtensionMethods;
 using GestureEngine;
 using Newtonsoft.Json;
@@ -28,6 +28,18 @@ public enum SwirlDirection {
     Either
 }
 
+// Link doors back to their hinges
+public class HingeLinker : MonoBehaviour {
+    public HingeDrive linkedDrive;
+}
+
+[HarmonyPatch(typeof(HingeDrive), "Init")]
+public static class HingeDrivePatch {
+    public static void Postfix(HingeDrive __instance) {
+        __instance.hingesHolder.gameObject.AddComponent<HingeLinker>().linkedDrive = __instance;
+    }
+}
+
 public class Entity : MonoBehaviour {
     public Creature creature;
     public CollisionHandler handler;
@@ -36,6 +48,7 @@ public class Entity : MonoBehaviour {
     public bool throwOnRelease;
 
     public Action<Entity> whileGrabbed = null;
+    public Action<Entity> onUnGrab = null;
 
     public Transform Transform => creature?.GetTorso().transform ?? item.transform;
 
@@ -63,11 +76,12 @@ public class Entity : MonoBehaviour {
             };
         }
 
-        pid = new RBPID(Rigidbody(), forceMode: ForceMode.Acceleration, maxForce: isCreature ? 15000 : 5000)
-            .Position(50, 0, 5);
+        pid = new RBPID(Rigidbody(), forceMode: ForceMode.Acceleration, maxForce: isCreature ? 30000 : 5000)
+            .Position(isCreature ? 100 : 50, 0, 5);
     }
 
     public void Destroy() {
+        Release();
         Destroy(this);
     }
 
@@ -99,9 +113,10 @@ public class Entity : MonoBehaviour {
         return Rigidbody()?.worldCenterOfMass ?? item.transform.position;
     }
 
-    public void Grab(bool shouldRelease = true, Action<Entity> whileGrabbed = null) {
+    public void Grab(bool shouldRelease = true, Action<Entity> whileGrabbed = null, Action<Entity> onUnGrab = null) {
         grabbed = true;
         this.whileGrabbed = whileGrabbed;
+        this.onUnGrab = onUnGrab;
         if (creature) {
             creature.brain.AddNoStandUpModifier(this);
             creature.ragdoll.SetPhysicModifier(this, 0);
@@ -126,6 +141,10 @@ public class Entity : MonoBehaviour {
     }
 
     public void Release() {
+        if (grabbed) {
+            onUnGrab?.Invoke(this);
+            onUnGrab = null;
+        }
         grabbed = false;
         onReleaseEvent.Invoke(this);
         if (creature) {
@@ -211,13 +230,13 @@ public class ItemModuleWand : ItemModule {
     public Args targetArgs = new Args {
         gradient = Utils.FadeInOutGradient(
             Utils.HexColor(40, 30, 191, 6),
-            Utils.HexColor(191, 0, 0, 6)),
+            Utils.HexColor(191, 0, 0, 6))
     };
 
     public Args shoveArgs = new Args {
         gradient = Utils.FadeInOutGradient(
             Utils.HexColor(250, 80, 30, 6),
-            Utils.HexColor(191, 0, 0, 6)),
+            Utils.HexColor(191, 0, 0, 6))
     };
 
     public Gradient attackOrderGradient = Utils.FadeInOutGradient(
@@ -332,6 +351,8 @@ public class ItemModuleWand : ItemModule {
                 Debug.Log($"Wand version {modData.ModVersion}");
         } catch (JsonException) { }
 
+        new Harmony("com.lyneca.dire-wand").PatchAll();
+
         Catalog.LoadAssetAsync<GameObject>("Lyneca.Wand.GesturePoint", obj => {
                 gestureNodePrefab = obj;
                 gestureNodePool = new ObjectPool<GestureNode>(
@@ -395,6 +416,7 @@ public class WandBehaviour : MonoBehaviour {
     public bool active;
     public Ray tipRay;
     protected Ray tipLookRay;
+    public Ray tipPlayerRay;
     public ObjectPool<GameObject> objectPool;
 
     protected Color targetColor;
@@ -404,7 +426,6 @@ public class WandBehaviour : MonoBehaviour {
     public bool canRestart = false;
     protected float lastCast = 0;
     protected Vector3[] rollingPoints;
-    protected Vector3[] orderedRollingPoints;
     protected int numRollingPoints = 50;
     protected int numPointsStored = 0;
     protected int rollingIndex = 0;
@@ -414,15 +435,10 @@ public class WandBehaviour : MonoBehaviour {
     protected Color black = Color.black;
     protected float lastPointRecorded;
     protected Vector3 midPoint;
-    protected float midPointDistance;
     public float swirlAngle;
-    protected float midPointDistanceAverageDeviation;
     protected Vector3 lastPoint;
-    protected Vector3 playerTipPos;
     public RagdollHand holdingHand;
     public RagdollHand otherHand;
-    protected Vector3 holdingHandViewVelocity;
-    protected Vector3 otherHandViewVelocity;
     protected bool activeTrigger;
 
     public Step root;
@@ -437,7 +453,13 @@ public class WandBehaviour : MonoBehaviour {
     private static readonly int ColorStart = Shader.PropertyToID("ColorStart");
     private static readonly int ColorEnd = Shader.PropertyToID("ColorEnd");
     private Transform lineSource;
-    private float buttonPressed;
+    private float swirlBeginTolerance = 0.025f;
+    private float swirlEndTolerance = 0.04f;
+    private float swirlLearnRate = 0.01f;
+    private int swirlLearnIterations = 10;
+    public bool debug;
+    private bool swirling;
+    public float swirlMinRadius = 0.05f;
 
     public void Init() {
         trail = new GameObject("Trail").AddComponent<TrailRenderer>();
@@ -473,7 +495,6 @@ public class WandBehaviour : MonoBehaviour {
 
         spells = new List<WandModule>();
         rollingPoints = new Vector3[numRollingPoints];
-        orderedRollingPoints = new Vector3[numRollingPoints];
         item = GetComponent<Item>();
 
         lineSource = new GameObject().transform;
@@ -487,6 +508,7 @@ public class WandBehaviour : MonoBehaviour {
 
         tipRay = new Ray();
         tipLookRay = new Ray();
+        tipPlayerRay = new Ray();
 
         root = Step.Start(() => {
             item.Haptic(0.7f);
@@ -494,11 +516,10 @@ public class WandBehaviour : MonoBehaviour {
         });
 
         button = root
-            .Then(() => item.mainHandler?.playerHand?.controlHand.alternateUsePressed == true, "Button Held",
-                runOnChange: false).Do(() => buttonPressed = Time.time);
+            .Then(() => Buttoning, "Button Held",
+                runOnChange: false);
 
-        trigger = root.Then(() => item.mainHandler?.playerHand?.controlHand.usePressed == true,
-            "Trigger Pressed", runOnChange: false);
+        trigger = root.Then(() => Triggering, "Trigger Pressed", runOnChange: false);
 
         targetedEntity = trigger
             .Then(Brandish())
@@ -531,6 +552,9 @@ public class WandBehaviour : MonoBehaviour {
                 objectPool.Clear();
         };
     }
+
+    public bool Buttoning => item.mainHandler?.Buttoning() ?? false;
+    public bool Triggering => item.mainHandler?.Triggering() ?? false;
 
     public Gesture Offhand
         => new(() => otherHand == null ? Gesture.HandSide.Both : Gesture.ToHandSide(otherHand.side));
@@ -586,7 +610,8 @@ public class WandBehaviour : MonoBehaviour {
         tipRay.direction = tip.forward;
         tipLookRay.origin = tipRay.origin;
         tipLookRay.direction = Vector3.Slerp(tipLookRay.direction, Player.local.head.transform.forward, 0.5f);
-        playerTipPos = Player.local.transform.InverseTransformPoint(tipLookRay.origin);
+        tipPlayerRay.origin = Player.local.transform.InverseTransformPoint(tipRay.origin);
+        tipPlayerRay.direction = Player.local.transform.InverseTransformDirection(tipRay.direction);
         tipVelocity = item.rb.GetPointVelocity(tipLookRay.origin)
                       - Player.local.locomotion.rb.GetPointVelocity(tipLookRay.origin);
         localTipVelocity = tip.transform.InverseTransformVector(tipVelocity);
@@ -594,27 +619,47 @@ public class WandBehaviour : MonoBehaviour {
         if (item.mainHandler) {
             holdingHand = item.mainHandler;
             otherHand = holdingHand.otherHand;
-            holdingHandViewVelocity
-                = Player.local.head.transform.InverseTransformVector(item.mainHandler.Velocity());
-            otherHandViewVelocity
-                = Player.local.head.transform.InverseTransformVector(item.mainHandler.otherHand.Velocity());
         }
-
+        
         if (active) {
             angleTurned += Vector3.SignedAngle(lastUp, transform.up, transform.forward);
             lastUp = transform.up;
+            if (debug) {
+                Viz.Lines("swirlCircle")
+                    .SetPoints(GetCircle(PlayerToWorld(midPoint), swirlMinRadius, PlayerToWorld(midPoint) - wandBase.position))
+                    .SetLoop(true)
+                    .Width(0.002f)
+                    .Color(Color.white)
+                    .Show();
+            }
+
             if (Time.time - lastPointRecorded > 0.01f) {
-                CalculateRollingAverage();
-                rollingPoints[rollingIndex] = playerTipPos;
+                rollingPoints[rollingIndex] = tipPlayerRay.origin;
                 lastPointRecorded = Time.time;
-                if (numPointsStored > 1
-                    && midPointDistance > 0.05f
-                    && midPointDistance < 0.4f
-                    && midPointDistanceAverageDeviation < 0.4f)
-                    swirlAngle += Vector3.SignedAngle(lastPoint - midPoint, playerTipPos - midPoint,
-                        midPoint - Player.local.transform.InverseTransformPoint(wandBase.position));
+                CalculateMidpoint();
+                Vector3 swirlMidpoint;
+                float radius;
+                if (!swirling) {
+                    swirling = CheckSwirl(swirlBeginTolerance, out swirlMidpoint, out radius) && radius > swirlMinRadius;
+                } else {
+                    swirling = CheckSwirl(swirlEndTolerance, out swirlMidpoint, out radius) && radius > swirlMinRadius;
+                }
+                if (swirling && numPointsStored > 1 && radius > 0.07f) {
+                    midPoint = swirlMidpoint;
+                    // Viz.Lines("circle").Color(Color.blue);
+                    swirlAngle += Vector3.SignedAngle(lastPoint - swirlMidpoint, tipPlayerRay.origin - swirlMidpoint, swirlMidpoint - WandBasePlayer);
+                    // Viz.Lines("angle")
+                    //     .SetPoints(PlayerToWorld(swirlMidpoint) + Vector3.up * 0.1f, PlayerToWorld(swirlMidpoint),
+                    //         PlayerToWorld(swirlMidpoint)
+                    //         + Quaternion.AngleAxis(swirlAngle, PlayerToWorld(swirlMidpoint) - wandBase.position)
+                    //         * Vector3.up
+                    //         * 0.1f)
+                    //     .Color(Color.yellow);
+                }
+
                 lastPoint = rollingPoints[rollingIndex];
-                numPointsStored++;
+                if (numPointsStored < numRollingPoints) 
+                    numPointsStored++;
                 rollingIndex++;
                 rollingIndex %= numRollingPoints;
             }
@@ -627,7 +672,9 @@ public class WandBehaviour : MonoBehaviour {
         }
 
         actualColor = Color.Lerp(actualColor, targetColor, Time.deltaTime * 20f);
-        item.renderers[0].materials[0].SetColor(EmissionColor, actualColor);
+        
+        if (item.renderers[0].materials.Length > 1)
+            item.renderers[0].materials[0].SetColor(EmissionColor, actualColor);
 
         for (var index = 0; index < spells.Count; index++) {
             spells[index].OnUpdate();
@@ -639,10 +686,145 @@ public class WandBehaviour : MonoBehaviour {
         }
     }
 
-    public void PlayCastEffect(Color color) {
-        var effect = item.GetCustomReference<VisualEffect>("CastEffect");
-        effect.SetVector4("Color", color);
-        effect.Play();
+    public Vector3 WandBasePlayer => WorldToPlayer(wandBase.position);
+    public Vector3 PlayerToWorld(Vector3 vec) => Player.local.transform.TransformPoint(vec);
+    public Vector3 WorldToPlayer(Vector3 vec) => Player.local.transform.InverseTransformPoint(vec);
+
+    // All positions are in player-space
+    public Vector2[] ProjectSwirlTo2D(out Vector3 axisX, out Vector3 axisY) {
+        int numPoints = Mathf.Min(numRollingPoints, numPointsStored);
+        var projected = new Vector2[numPoints];
+        var normal = midPoint - WandBasePlayer;
+        axisX = Vector3.Cross(normal, Vector3.up).normalized;
+        axisY = Vector3.Cross(axisX, normal).normalized;
+        int index = numPointsStored == numRollingPoints ? rollingIndex : 0;
+        for (int i = 0; i < numPoints; i++) {
+            var point = rollingPoints[(index + i) % numRollingPoints] - midPoint;
+            projected[i] = new Vector2(Vector3.Dot(point, axisX), Vector3.Dot(point, axisY));
+        }
+
+        return projected;
+    }
+
+    // compute sum of square errors
+    public float CalculateError(float x, float y, float r, Vector2[] points) {
+        float error = 0;
+        var center = new Vector2(x, y);
+
+        for (var i = 0; i < points.Length; i++) {
+            float perpDistance = (points[i] - center).magnitude - r;
+            error += Mathf.Pow(perpDistance, 2);
+        }
+
+        return error;
+    }
+
+    // All positions are in player-space
+    public bool CheckSwirl(float tolerance, out Vector3 foundMidpoint, out float radius) {
+        var points = ProjectSwirlTo2D(out var axisX, out var axisY);
+        var midpoint2d = Vector2.zero;
+        var normal = PlayerToWorld(midPoint) - wandBase.position;
+
+        var pointViz = Viz
+            .Lines("points")
+            .Color(Color.white)
+            .Width(0.002f);
+        if (debug) {
+            pointViz.Clear();
+        }
+
+        for (var i = 0; i < points.Length; i++) {
+            midpoint2d += points[i];
+            if (debug)
+                pointViz.AddPoint(PlayerToWorld(midPoint + points[i].x * axisX + points[i].y * axisY));
+        }
+
+        midpoint2d /= points.Length;
+        float averageRadius = 0;
+        
+        for (var i = 0; i < points.Length; i++) {
+            averageRadius += Vector2.Distance(points[i], midpoint2d);
+        }
+
+        averageRadius /= points.Length;
+        
+        float x = midpoint2d.x;
+        float y = midpoint2d.y;
+        float r = averageRadius;
+        foundMidpoint = midPoint + x * axisX + y * axisY;
+        radius = r;
+        if (debug) {
+            for (int i = 0; i < swirlLearnIterations; i++) {
+                Viz.Lines("circle", i.ToString()).Hide();
+            }
+        }
+
+        for (var i = 0; i < swirlLearnIterations; i++) {
+            foundMidpoint = midPoint + x * axisX + y * axisY;
+            var worldMidpoint = PlayerToWorld(foundMidpoint);
+            radius = r;
+            
+            float error = CalculateError(x, y, r, points);
+
+            if (debug) {
+                Viz.Dot("midpoint", worldMidpoint).Color(Color.green);
+
+                Viz.Lines("circle", i.ToString())
+                    .Show()
+                    .SetPoints(GetCircle(worldMidpoint, radius, normal, 24))
+                    .SetLoop(true)
+                    .Width(Mathf.Lerp(0.002f, 0.006f, (float)i / swirlLearnIterations))
+                    .Color(error < swirlBeginTolerance
+                        ? Color.blue
+                        : Color.Lerp(Color.green, Color.red,
+                            error.Remap01(swirlBeginTolerance, swirlBeginTolerance * 10)));
+
+                Viz.Lines("plane")
+                    .SetPoints(GetSquare(worldMidpoint, Player.local.transform.TransformDirection(axisX),
+                        Player.local.transform.TransformDirection(axisY)))
+                    .SetLoop(true)
+                    .Width(0.006f)
+                    .Color(Color.blue);
+            }
+
+            if (error < tolerance) return true;
+            float dx = (CalculateError(x * 1.01f, y, r, points) - error) / (x * 1.01f - x);
+            float dy = (CalculateError(x, y * 1.01f, r, points) - error) / (y * 1.01f - y);
+            float dr = (CalculateError(x, y, r * 1.01f, points) - error) / (r * 1.01f - r);
+
+            var nextTest = new Vector3(x, y, r) - new Vector3(dx, dy, dr) * swirlLearnRate;
+            
+            (x, y, r) = (nextTest.x, nextTest.y, nextTest.z);
+        }
+
+        return false;
+    }
+
+    public Vector3[] GetCircle(Vector3 midpoint, float radius, Vector3 normal, int numSteps = 8) {
+        var points = new Vector3[numSteps];
+        var up = Vector3.Cross(normal, Vector3.Cross(Vector3.up, normal)).normalized;
+        for (int i = 0; i < numSteps; i++) {
+            points[i] = midpoint + Quaternion.AngleAxis(360f / numSteps * i, normal) * up * radius;
+        }
+
+        return points;
+    }
+
+    public Vector3[] GetSquare(Vector3 midpoint, Vector3 x, Vector3 y) {
+        x /= 2;
+        y /= 2;
+        return new[] {
+            midpoint + y - x,
+            midpoint + y + x,
+            midpoint - y + x,
+            midpoint - y - x
+        };
+    }
+
+    public void PlayCastEffect(Gradient gradient) {
+        var effect = Catalog.GetData<EffectData>("WandSpiral").Spawn(wandBase);
+        effect?.SetMainGradient(gradient);
+        effect?.Play();
     }
 
     public void SpawnNode() {
@@ -676,18 +858,18 @@ public class WandBehaviour : MonoBehaviour {
         switch (direction) {
             case SwirlDirection.CounterClockwise:
                 return Tuple.Create("Swirl CCW", new Func<bool>[] {
-                    () => swirlAngle > 180 * amount * 2,
-                    () => swirlAngle > 180 * (amount * 2 + 1)
+                    () => swirlAngle > 180 * (amount * 2 - 1),
+                    () => swirlAngle > 180 * amount * 2
                 });
             case SwirlDirection.Clockwise:
                 return Tuple.Create("Swirl CW", new Func<bool>[] {
-                    () => swirlAngle < -180 * amount * 2,
-                    () => swirlAngle < -180 * (amount * 2 + 1)
+                    () => swirlAngle < -180 * (amount * 2 - 1),
+                    () => swirlAngle < -180 * amount * 2
                 });
             case SwirlDirection.Either:
                 return Tuple.Create("Swirl", new Func<bool>[] {
-                    () => Mathf.Abs(swirlAngle) > 180 * amount * 2,
-                    () => Mathf.Abs(swirlAngle) > 180 * (amount * 2 + 1)
+                    () => Mathf.Abs(swirlAngle) > 180 * (amount * 2 - 1),
+                    () => Mathf.Abs(swirlAngle) > 180 * amount * 2
                 });
         }
 
@@ -705,7 +887,7 @@ public class WandBehaviour : MonoBehaviour {
         switch (direction) {
             case SwirlDirection.CounterClockwise:
                 return Tuple.Create($"Twist CW to {degrees}", new Func<bool>[] {
-                    () => angleTurned > -degrees && tipVelocity.magnitude < 1
+                    () => angleTurned > degrees && tipVelocity.magnitude < 1
                 });
             case SwirlDirection.Clockwise:
                 return Tuple.Create($"Twist CCW to {degrees}", new Func<bool>[] {
@@ -732,23 +914,15 @@ public class WandBehaviour : MonoBehaviour {
                 { () => tip.forward.InDirection(direction) });
     }
 
-    public void CalculateRollingAverage() {
-        float newMidPointDistance = 0;
+    public void CalculateMidpoint() {
         Vector3 newMidPoint = Vector3.zero;
-        midPointDistanceAverageDeviation = 0;
         int numPoints = Mathf.Min(numRollingPoints, numPointsStored);
+        int index = numPointsStored == numRollingPoints ? rollingIndex : 0;
         for (int i = 0; i < numPoints; i++) {
-            orderedRollingPoints[i]
-                = Player.local.transform.TransformPoint(rollingPoints[(rollingIndex + i) % numRollingPoints]);
-            float distance = Vector3.Distance(midPoint, rollingPoints[i]);
-            newMidPointDistance += distance;
-            newMidPoint += rollingPoints[i];
-            midPointDistanceAverageDeviation += Mathf.Abs(midPointDistance - distance) / midPointDistance;
+            newMidPoint += rollingPoints[(index + i) % numRollingPoints];
         }
 
         midPoint = newMidPoint / numPoints;
-        midPointDistance = newMidPointDistance / numPoints;
-        midPointDistanceAverageDeviation /= numPoints;
     }
 
     public void SetEmission(Color color) => targetColor = color;
@@ -759,13 +933,11 @@ public class WandBehaviour : MonoBehaviour {
         active = true;
         lastUp = transform.up;
         angleTurned = 0;
-
+        swirling = false;
         swirlAngle = 0;
         numPointsStored = 0;
         rollingIndex = 0;
-        midPointDistance = 0;
-        midPointDistanceAverageDeviation = 0;
-        lastPoint = playerTipPos;
+        lastPoint = tip.position;
         midPoint = lastPoint;
 
         SetEmission(activeTrigger ? module.primaryColor : module.secondaryColor);
@@ -774,16 +946,19 @@ public class WandBehaviour : MonoBehaviour {
     public void Reset() {
         active = false;
         canRestart = false;
+        numPointsStored = 0;
+        swirling = false;
+        rollingIndex = 0;
         SetEmission(black);
         root.Reset();
-        ClearTarget();
         for (var index = 0; index < spells.Count; index++) {
             spells[index].OnReset();
         }
+        ClearTarget();
     }
 
     public void SetTrail(bool state, Tuple<Color, Color> trailColors = null, Gradient gradient = null) {
-        trail.emitting = state;
+        trail.emitting = !debug && state;
 
         if (trailColors != null) {
             trail.material?.SetColor(ColorStart, trailColors.Item1);
@@ -798,7 +973,7 @@ public class WandBehaviour : MonoBehaviour {
 
         var line = module.targetLineEffectData.Spawn(transform);
             
-        PlayCastEffect(args?.gradient.Evaluate(0.5f) ?? module.primaryColor);
+        PlayCastEffect(args?.gradient ?? module.primaryGradient);
 
         lineSource.SetPositionAndRotation(tip.position, tip.rotation);
         line.SetSource(lineSource);
@@ -864,7 +1039,7 @@ public class WandBehaviour : MonoBehaviour {
             }
         }
 
-        if (creatureOnly != true && (!preferCreature || boundsSet.Count == 0)) {
+        if (creatureOnly != true && (preferCreature != true || boundsSet.Count == 0)) {
             for (var index = 0; index < Item.allActive.Count; index++) {
                 var otherItem = Item.allActive[index];
 
@@ -910,9 +1085,9 @@ public class WandBehaviour : MonoBehaviour {
 
             var closestPointToLine = bounds.ClosestPoint(pointOnLine);
 
-            if (preferLive && outEntity is { creature.isKilled: false } && entity is { creature.isKilled: true }) {
-                continue;
-            }
+            // if (preferLive && outEntity is { creature.isKilled: false } && entity is { creature.isKilled: true }) {
+            //     continue;
+            // }
 
             //Viz.Lines(entity, "closestPoint").Color(Color.white).SetPoints(closestPointToLine, pointOnLine);
             

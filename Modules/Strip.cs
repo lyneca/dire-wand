@@ -42,6 +42,7 @@ public class Strip : WandModule {
 
     public void StripEnemy() {
         if (!wand.target.isCreature) return;
+        MarkCasted();
         Player.currentCreature.gameObject.GetOrAddComponent<ArmorSwapper>();
         for (var i = 0; i < wand.target.creature.ragdoll.parts.Count; i++) {
             var part = wand.target.creature.ragdoll.parts[i];

@@ -20,6 +20,7 @@ public class Spongify : WandModule {
     }
 
     public void SpongifyItem() {
+        MarkCasted();
         wand.target?.item?.gameObject.GetComponent<FreezeModifier>()?.Clear();
         wand.target?.item?.gameObject.GetOrAddComponent<BounceBehaviour>().Activate(this);
     }

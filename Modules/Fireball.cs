@@ -21,7 +21,10 @@ public class Fireball : WandModule {
 
         for (var i = 0; i < numCasts; i++) {
             step = step.Then(wand.Brandish())
-                .Do(() => ThrowFireballStatic(wand, wand.tip.forward * 20), "Throw Fireball");
+                .Do(() => {
+                    ThrowFireballStatic(wand, wand.tip.forward * 20);
+                    MarkCasted();
+                }, "Throw Fireball");
         }
     }
 

@@ -64,6 +64,7 @@ namespace ExtensionMethods {
             Utils.SetField(point, "effectActive", true);
             Utils.SetField(point, "dampenedIntensity", 0);
         }
+
         public static void Stop(this WhooshPoint point) {
             if ((point.GetField("trigger") is WhooshPoint.Trigger trigger)
                 && trigger != WhooshPoint.Trigger.OnGrab
@@ -110,15 +111,18 @@ namespace ExtensionMethods {
         /// Is is this hand gripping?
         /// </summary>
         public static bool IsGripping(this RagdollHand hand) => hand?.playerHand?.controlHand?.gripPressed ?? false;
+
         public static Vector3 PalmDir(this RagdollHand hand) => hand.PalmDir;
         public static Vector3 PointDir(this RagdollHand hand) => hand.PointDir;
         public static Vector3 ThumbDir(this RagdollHand hand) => hand.ThumbDir;
+
         public static void HapticTick(this RagdollHand hand, float intensity = 1, float frequency = 10, int count = 1) {
-            
+
             PlayerControl.input.Haptic(hand.side, intensity, frequency);
             if (count > 1) {
                 for (int i = 0; i < count - 1; i++) {
-                    PlayerControl.local.RunAfter(() => PlayerControl.input.Haptic(hand.side, intensity, frequency), 0.07f * count);
+                    PlayerControl.local.RunAfter(() => PlayerControl.input.Haptic(hand.side, intensity, frequency),
+                        0.07f * count);
                 }
             }
         }
@@ -162,12 +166,15 @@ namespace ExtensionMethods {
             func(hit.sourceColliderGroup);
         }
 
-        public static float NegPow(this float input, float power) => Mathf.Pow(input, power) * (input / Mathf.Abs(input));
+        public static float NegPow(this float input, float power)
+            => Mathf.Pow(input, power) * (input / Mathf.Abs(input));
+
         public static float Sign(this float input) => input > 0 ? 1 : input < 0 ? -1 : 0;
         public static float Pow(this float input, float power) => Mathf.Pow(input, power);
         public static float Sqrt(this float input) => Mathf.Sqrt(input);
         public static float Clamp01(this float input) => Mathf.Clamp01(input);
         public static float Clamp(this float input, float low, float high) => Mathf.Clamp(input, low, high);
+
         public static float Remap(this float input, float inLow, float inHigh, float outLow, float outHigh)
             => (input - inLow) / (inHigh - inLow) * (outHigh - outLow) + outLow;
 
@@ -187,7 +194,7 @@ namespace ExtensionMethods {
             var curve = new AnimationCurve();
             int i = 0;
             foreach (var value in values) {
-                curve.AddKey(i / ((float) values.Length - 1), value);
+                curve.AddKey(i / ((float)values.Length - 1), value);
                 i++;
             }
 
@@ -237,7 +244,8 @@ namespace ExtensionMethods {
         /// <summary>
         /// float.SafetyClamp() but for vectors
         /// </summary>
-        public static Vector3 SafetyClamp(this Vector3 vec, float max) => vec.normalized * vec.magnitude.SafetyClamp(max);
+        public static Vector3 SafetyClamp(this Vector3 vec, float max)
+            => vec.normalized * vec.magnitude.SafetyClamp(max);
 
         public static Vector3 XZ(this Vector3 vec) => new Vector3(vec.x, 0, vec.z);
 
@@ -266,7 +274,7 @@ namespace ExtensionMethods {
                 _ => throw new ArgumentOutOfRangeException(nameof(dir), dir, null)
             };
         }
-        
+
         public static float GetAxis(this Vector3 vec, Axis axis) {
             return axis switch {
                 Axis.X => vec.x,
@@ -353,7 +361,8 @@ namespace ExtensionMethods {
             return Rotated(vector, Quaternion.Euler(x, y, z), pivot);
         }
 
-        public static bool IsFacing(this Vector3 source, Vector3 other, float angle = 50) => Vector3.Angle(source, other) < angle;
+        public static bool IsFacing(this Vector3 source, Vector3 other, float angle = 50)
+            => Vector3.Angle(source, other) < angle;
 
         public static void SetPosition(this EffectInstance instance, Vector3 position) {
             instance.effects.ForEach(effect => effect.transform.position = position);
@@ -498,33 +507,34 @@ namespace ExtensionMethods {
         }
 
         // This method is ILLEGAL
-    public static object CallPrivate(this object o, string methodName, params object[] args) {
-        var mi = o.GetType().GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Instance);
-        if (mi != null) {
-            return mi.Invoke(o, args);
+        public static object CallPrivate(this object o, string methodName, params object[] args) {
+            var mi = o.GetType().GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Instance);
+            if (mi != null) {
+                return mi.Invoke(o, args);
+            }
+
+            return null;
         }
 
-        return null;
-    }
+        public static object GetField(this object instance, string fieldName) {
+            if (instance == null) return null;
+            BindingFlags bindFlags = BindingFlags.Instance
+                                     | BindingFlags.Public
+                                     | BindingFlags.NonPublic
+                                     | BindingFlags.Static;
+            FieldInfo field = instance.GetType().GetField(fieldName, bindFlags);
+            return field.GetValue(instance);
+        }
 
-    public static object GetField(this object instance, string fieldName) {
-        if (instance == null) return null;
-        BindingFlags bindFlags = BindingFlags.Instance
-                                 | BindingFlags.Public
-                                 | BindingFlags.NonPublic
-                                 | BindingFlags.Static;
-        FieldInfo field = instance.GetType().GetField(fieldName, bindFlags);
-        return field.GetValue(instance);
-    }
-    public static T GetField<T>(this object instance, string fieldName) {
-        if (instance == null) return default;
-        BindingFlags bindFlags = BindingFlags.Instance
-                                 | BindingFlags.Public
-                                 | BindingFlags.NonPublic
-                                 | BindingFlags.Static;
-        FieldInfo field = instance.GetType().GetField(fieldName, bindFlags);
-        return (T)field.GetValue(instance);
-    }
+        public static T GetField<T>(this object instance, string fieldName) {
+            if (instance == null) return default;
+            BindingFlags bindFlags = BindingFlags.Instance
+                                     | BindingFlags.Public
+                                     | BindingFlags.NonPublic
+                                     | BindingFlags.Static;
+            FieldInfo field = instance.GetType().GetField(fieldName, bindFlags);
+            return (T)field.GetValue(instance);
+        }
 
         public static void SetSpring(this ConfigurableJoint joint, float spring) {
             var xDrive = joint.xDrive;
@@ -676,8 +686,10 @@ namespace ExtensionMethods {
         public static T RandomChoice<T>(this IEnumerable<T> list)
             => list.ElementAtOrDefault(Random.Range(0, list.Count() - 1));
 
-        public static int AffectedHandlers(this Creature creature, IEnumerable<CollisionHandler> handlers) => Mathf.Max(creature
-            ?.ragdoll.parts.SelectNotNull(part => part.collisionHandler).Intersect(handlers).Count() ?? 1, 1);
+        public static int AffectedHandlers(this Creature creature, IEnumerable<CollisionHandler> handlers) => Mathf.Max(
+            creature
+                ?.ragdoll.parts.SelectNotNull(part => part.collisionHandler).Intersect(handlers).Count()
+            ?? 1, 1);
 
         public static int AffectedHandlers(this CollisionHandler handler, IEnumerable<CollisionHandler> handlers)
             => Mathf.Max(handler.ragdollPart?.ragdoll.creature?.ragdoll.parts
@@ -719,6 +731,7 @@ namespace ExtensionMethods {
         }
 
         public static bool Active(this Creature creature) => !creature.isKilled && !creature.isCulled;
+
         public static void IgnoreCollider(this Item item, Collider collider, bool ignore = true) {
             foreach (var cg in item.colliderGroups) {
                 foreach (var itemCollider in cg.colliders) {
@@ -731,6 +744,7 @@ namespace ExtensionMethods {
                                                    && item.holder == null
                                                    && !item.isGripped
                                                    && !item.isTelekinesisGrabbed;
+
         public static void SafeDespawn(this Item item, float delay) {
             item.RunAfter(() => {
                 item.handlers.ToList().ForEach(handler => handler.UnGrab(false));
@@ -741,12 +755,14 @@ namespace ExtensionMethods {
                 item.Despawn();
             }, delay);
         }
+
         public static IEnumerable<string> Chop(this string str, int chunkSize) {
             for (int i = 0; i < str.Length; i += chunkSize)
                 yield return str.Substring(i, chunkSize);
         }
 
         public static bool IsPlayer(this RagdollPart part) => part?.ragdoll?.creature.isPlayer == true;
+
         public static bool IsImportant(this RagdollPart part) {
             var type = part.type;
             return type == RagdollPart.Type.Head
@@ -761,7 +777,7 @@ namespace ExtensionMethods {
             var inst = obj
                 .GetType()
                 .GetMethod("MemberwiseClone", BindingFlags.Instance | BindingFlags.NonPublic);
-            return (T) inst?.Invoke(obj, null);
+            return (T)inst?.Invoke(obj, null);
         }
     }
 
@@ -836,6 +852,7 @@ namespace ExtensionMethods {
         public static bool Selected<T>(this RagdollHand hand) where T : SpellCastCharge
             => hand.caster.spellInstance is T;
         public static bool Selected(this RagdollHand hand, string id) => hand.caster.spellInstance?.id == id;
+        public static bool Casting(this RagdollHand hand) => hand.caster.isFiring;
         public static bool Casting<T>(this RagdollHand hand) where T : SpellCastCharge
             => hand.caster.spellInstance is T && hand.caster.isFiring;
         public static RagdollHand GetHand(Side side) => Player.currentCreature.GetHand(side);
@@ -857,7 +874,7 @@ namespace ExtensionMethods {
     }
 }
 
-static class Utils {
+public static class Utils {
     public static Vector3 ClosestPointOnLine(Vector3 origin, Vector3 direction, Vector3 point) {
         direction.Normalize(); // this needs to be a unit vector
         var v = point - origin;
@@ -1269,9 +1286,7 @@ static class Utils {
     static IEnumerator CloneRoutine(Item a, Item b) {
         a.IgnoreObjectCollision(b);
         b.IgnoreObjectCollision(a);
-        var vector = Vector3.ProjectOnPlane(RandomVector(), Vector3.up).normalized
-                     * Mathf.Clamp01(a.GetRadius())
-                     * 0.5f;
+        var vector = Vector3.ProjectOnPlane(RandomVector(), Vector3.up).normalized * (Mathf.Clamp01(a.GetRadius()) * 0.5f);
         b.transform.position = a.transform.position + vector;
         b.rb.velocity = a.rb.velocity;
         b.rb.angularVelocity = a.rb.angularVelocity;
