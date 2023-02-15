@@ -25,12 +25,12 @@ public class Slow : WandModule {
     public void SlowItem() {
         MarkCasted();
         foreach (var handler in wand.target.item.collisionHandlers) {
-            handler.rb.AddModifier(this, 3, drag: 10);
+            handler.physicBody.rigidBody.AddModifier(this, 3, drag: 10);
         }
 
         wand.target.item.RunAfter(() => {
             foreach (var handler in wand.target.item.collisionHandlers) {
-                handler.rb.RemoveModifier(this);
+                handler.physicBody.rigidBody.RemoveModifier(this);
             }
         }, 10);
 

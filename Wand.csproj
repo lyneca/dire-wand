@@ -50,40 +50,40 @@
         <Reference Include="System.Net.Http" />
         <Reference Include="System.Xml" />
         <Reference Include="ThunderRoad">
-            <HintPath>D:\Games\Oculus\Software\Software\warpfrog-blade-sorcery\BladeAndSorcery_Data\Managed\ThunderRoad.dll</HintPath>
+          <HintPath>D:\Games\Steam\steamapps\common\Blade &amp; Sorcery\BladeAndSorcery_Data\Managed\ThunderRoad.dll</HintPath>
         </Reference>
-        <Reference Include="Unity.ResourceManager">
-            <HintPath>D:\Games\Oculus\Software\Software\warpfrog-blade-sorcery\BladeAndSorcery_Data\Managed\Unity.ResourceManager.dll</HintPath>
+        <Reference Include="Unity.TextMeshPro">
+          <HintPath>D:\Games\Steam\steamapps\common\Blade &amp; Sorcery\BladeAndSorcery_Data\Managed\Unity.TextMeshPro.dll</HintPath>
         </Reference>
         <Reference Include="UnityEngine.AIModule">
-            <HintPath>D:\Games\Oculus\Software\Software\warpfrog-blade-sorcery\BladeAndSorcery_Data\Managed\UnityEngine.AIModule.dll</HintPath>
+          <HintPath>D:\Games\Steam\steamapps\common\Blade &amp; Sorcery\BladeAndSorcery_Data\Managed\UnityEngine.AIModule.dll</HintPath>
         </Reference>
         <Reference Include="UnityEngine.AnimationModule">
-            <HintPath>D:\Games\Oculus\Software\Software\warpfrog-blade-sorcery\BladeAndSorcery_Data\Managed\UnityEngine.AnimationModule.dll</HintPath>
+          <HintPath>D:\Games\Steam\steamapps\common\Blade &amp; Sorcery\BladeAndSorcery_Data\Managed\UnityEngine.AnimationModule.dll</HintPath>
         </Reference>
         <Reference Include="UnityEngine.AudioModule">
-            <HintPath>D:\Games\Oculus\Software\Software\warpfrog-blade-sorcery\BladeAndSorcery_Data\Managed\UnityEngine.AudioModule.dll</HintPath>
+          <HintPath>D:\Games\Steam\steamapps\common\Blade &amp; Sorcery\BladeAndSorcery_Data\Managed\UnityEngine.AudioModule.dll</HintPath>
         </Reference>
         <Reference Include="UnityEngine.CoreModule">
-            <HintPath>D:\Games\Oculus\Software\Software\warpfrog-blade-sorcery\BladeAndSorcery_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
+          <HintPath>D:\Games\Steam\steamapps\common\Blade &amp; Sorcery\BladeAndSorcery_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
         </Reference>
         <Reference Include="UnityEngine.PhysicsModule">
-            <HintPath>D:\Games\Oculus\Software\Software\warpfrog-blade-sorcery\BladeAndSorcery_Data\Managed\UnityEngine.PhysicsModule.dll</HintPath>
+          <HintPath>D:\Games\Steam\steamapps\common\Blade &amp; Sorcery\BladeAndSorcery_Data\Managed\UnityEngine.PhysicsModule.dll</HintPath>
         </Reference>
         <Reference Include="UnityEngine.TextRenderingModule">
-          <HintPath>D:\Games\Oculus\Software\Software\warpfrog-blade-sorcery\BladeAndSorcery_Data\Managed\UnityEngine.TextRenderingModule.dll</HintPath>
+          <HintPath>D:\Games\Steam\steamapps\common\Blade &amp; Sorcery\BladeAndSorcery_Data\Managed\UnityEngine.TextRenderingModule.dll</HintPath>
         </Reference>
         <Reference Include="UnityEngine.UI">
-            <HintPath>D:\Games\Oculus\Software\Software\warpfrog-blade-sorcery\BladeAndSorcery_Data\Managed\UnityEngine.UI.dll</HintPath>
+          <HintPath>D:\Games\Steam\steamapps\common\Blade &amp; Sorcery\BladeAndSorcery_Data\Managed\UnityEngine.UI.dll</HintPath>
         </Reference>
-        <Reference Include="UnityEngine.UNETModule">
-            <HintPath>D:\Games\Oculus\Software\Software\warpfrog-blade-sorcery\BladeAndSorcery_Data\Managed\UnityEngine.UNETModule.dll</HintPath>
+        <Reference Include="UnityEngine.UIModule">
+          <HintPath>D:\Games\Steam\steamapps\common\Blade &amp; Sorcery\BladeAndSorcery_Data\Managed\UnityEngine.UIModule.dll</HintPath>
         </Reference>
         <Reference Include="UnityEngine.VFXModule">
-            <HintPath>D:\Games\Oculus\Software\Software\warpfrog-blade-sorcery\BladeAndSorcery_Data\Managed\UnityEngine.VFXModule.dll</HintPath>
+          <HintPath>D:\Games\Steam\steamapps\common\Blade &amp; Sorcery\BladeAndSorcery_Data\Managed\UnityEngine.VFXModule.dll</HintPath>
         </Reference>
         <Reference Include="UnityEngine.VideoModule">
-            <HintPath>D:\Games\Oculus\Software\Software\warpfrog-blade-sorcery\BladeAndSorcery_Data\Managed\UnityEngine.VideoModule.dll</HintPath>
+          <HintPath>D:\Games\Steam\steamapps\common\Blade &amp; Sorcery\BladeAndSorcery_Data\Managed\UnityEngine.VideoModule.dll</HintPath>
         </Reference>
     </ItemGroup>
     <ItemGroup>
@@ -130,10 +130,18 @@
     <ItemGroup />
     <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
     <PropertyGroup>
+        <!--
         <PostBuildEvent>copy /Y $(TargetPath) "E:\BasSDK\BuildStaging\Catalogs\Wand"
             copy /Y "$(TargetDir)\$(TargetName).pdb" "E:\BasSDK\BuildStaging\Catalogs\Wand"
             copy /Y $(TargetPath) "D:\Games\Oculus\Software\Software\warpfrog-blade-sorcery\BladeAndSorcery_Data\StreamingAssets\Mods\Wand"
             copy /Y "$(TargetDir)\$(TargetName).pdb" "D:\Games\Oculus\Software\Software\warpfrog-blade-sorcery\BladeAndSorcery_Data\StreamingAssets\Mods\Wand"
+        </PostBuildEvent>
+        -->
+        <PostBuildEvent>
+            copy /Y $(TargetPath) "E:\BasSDK\BuildStaging\Catalogs\Wand"
+            copy /Y "$(TargetDir)\$(TargetName).pdb" "E:\BasSDK\BuildStaging\Catalogs\Wand"
+            copy /Y $(TargetPath) "D:\Games\Steam\steamapps\common\Blade &amp; Sorcery\BladeAndSorcery_Data\StreamingAssets\Mods\Wand"
+            copy /Y "$(TargetDir)\$(TargetName).pdb" "D:\Games\Steam\steamapps\common\Blade &amp; Sorcery\BladeAndSorcery_Data\StreamingAssets\Mods\Wand"
         </PostBuildEvent>
     </PropertyGroup>
 </Project>

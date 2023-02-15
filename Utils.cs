@@ -33,7 +33,7 @@ namespace ExtensionMethods {
         ///  Get hand local angular velocity
         /// </summary>
         public static Vector3 LocalAngularVelocity(this RagdollHand hand)
-            => hand.transform.InverseTransformDirection(hand.rb.angularVelocity);
+            => hand.transform.InverseTransformDirection(hand.physicBody.angularVelocity);
 
         public static Task<TOutput> Then<TInput, TOutput>(this Task<TInput> task, Func<TInput, TOutput> func) {
             return task.ContinueWith((input) => func(input.Result));
@@ -569,10 +569,10 @@ namespace ExtensionMethods {
         }
 
         public static float GetMassModifier(this Item item) {
-            if (item.rb.mass < 1) {
-                return item.rb.mass * 3;
+            if (item.physicBody.mass < 1) {
+                return item.physicBody.mass * 3;
             } else {
-                return item.rb.mass;
+                return item.physicBody.mass;
             }
         }
 
@@ -671,13 +671,13 @@ namespace ExtensionMethods {
             float? gravity = null,
             float? drag = null,
             float? mass = null) {
-            rb.gameObject.GetOrAddComponent<RigidbodyModifier>().AddModifier(handler, priority, gravity, drag, mass);
+            rb.gameObject.GetOrAddComponent<PhysicBodyModifier>().AddModifier(handler, priority, gravity, drag, mass);
         }
 
         public static void RemoveModifier(
             this Rigidbody rb,
             object handler) {
-            rb.gameObject.GetOrAddComponent<RigidbodyModifier>().RemoveModifier(handler);
+            rb.gameObject.GetOrAddComponent<PhysicBodyModifier>().RemoveModifier(handler);
         }
 
         public static string ListString<T>(this IEnumerable<T> list)
@@ -705,7 +705,7 @@ namespace ExtensionMethods {
 
         public static void SliceAll(this Ragdoll ragdoll, float forceAway = 0) {
             ragdoll.headPart.parentPart.TrySlice();
-            ragdoll.headPart.rb.AddForce(
+            ragdoll.headPart.physicBody.AddForce(
                 (ragdoll.headPart.transform.position - ragdoll.rootPart.transform.position).normalized * forceAway,
                 ForceMode.VelocityChange);
 
@@ -718,7 +718,7 @@ namespace ExtensionMethods {
 
             foreach (var part in parts) {
                 part.TrySlice();
-                part.rb.AddForce(
+                part.physicBody.AddForce(
                     (part.transform.position - ragdoll.rootPart.transform.position).normalized * forceAway,
                     ForceMode.VelocityChange);
             }
@@ -959,15 +959,15 @@ public static class Utils {
         return position + Vector3.up * distance;
     }
 
-    public static FixedJoint CreateFixedJoint(Rigidbody source, Rigidbody target, Vector3? anchor = null) {
+    public static FixedJoint CreateFixedJoint(PhysicBody source, PhysicBody target, Vector3? anchor = null) {
         var joint = source.gameObject.AddComponent<FixedJoint>();
-        joint.connectedBody = target;
+        joint.connectedBody = target.rigidBody;
         joint.anchor = anchor ?? source.centerOfMass;
         return joint;
     }
-    public static ConfigurableJoint CreateReallyFixedJoint(Rigidbody source, Rigidbody target, Vector3? anchor = null) {
+    public static ConfigurableJoint CreateReallyFixedJoint(PhysicBody source, PhysicBody target, Vector3? anchor = null) {
         var joint = source.gameObject.AddComponent<ConfigurableJoint>();
-        joint.connectedBody = target;
+        joint.connectedBody = target.rigidBody;
         joint.anchor = anchor ?? source.centerOfMass;
         joint.projectionMode = JointProjectionMode.PositionAndRotation;
         joint.xMotion = ConfigurableJointMotion.Locked;
@@ -1124,7 +1124,7 @@ public static class Utils {
         if (creature.isPlayer) {
             Player.local.locomotion.transform.position = target;
             Hands.ForBothHands(hand => {
-                if (hand.grabbedHandle?.item is Item item && !item.rb.isKinematic) {
+                if (hand.grabbedHandle?.item is Item item && !item.physicBody.isKinematic) {
                     item.transform.position = target + item.transform.position - currentPos;
                 } else {
                     hand.TryRelease();
@@ -1137,7 +1137,7 @@ public static class Utils {
 
     public static void Explosion(Vector3 origin, float force, float radius, bool massCompensation = false, bool disarm = false, bool dismemberIfKill = false, bool affectPlayer = false, float damage = 0, Action<Creature> onHit = null) {
         var seenRigidbodies = new List<Rigidbody>();
-        var seenCreatures = new List<Creature> { };
+        var seenCreatures = new List<Creature>();
         if (!affectPlayer) {
             seenCreatures.Add(Player.currentCreature);
         }
@@ -1288,11 +1288,11 @@ public static class Utils {
         b.IgnoreObjectCollision(a);
         var vector = Vector3.ProjectOnPlane(RandomVector(), Vector3.up).normalized * (Mathf.Clamp01(a.GetRadius()) * 0.5f);
         b.transform.position = a.transform.position + vector;
-        b.rb.velocity = a.rb.velocity;
-        b.rb.angularVelocity = a.rb.angularVelocity;
-        b.rb.AddForceAtPosition((vector + Vector3.up * 0.5f) * 10f,
+        b.physicBody.velocity = a.physicBody.velocity;
+        b.physicBody.angularVelocity = a.physicBody.angularVelocity;
+        b.physicBody.AddForceAtPosition((vector + Vector3.up * 0.5f) * 10f,
             a.transform.position + vector * 0.5f, ForceMode.VelocityChange);
-        a.rb.AddForceAtPosition((-vector + Vector3.up) * 10f,
+        a.physicBody.AddForceAtPosition((-vector + Vector3.up) * 10f,
             a.transform.position + vector * 0.5f, ForceMode.VelocityChange);
         yield return new WaitForSeconds(0.5f);
         a.ResetObjectCollision();
@@ -1344,7 +1344,7 @@ public static class Utils {
                         && creature.state != Creature.State.Dead);
 
     public static IEnumerable<Item> AllItemsInRadius(Vector3 position, float radius) => Item.allActive.Where(item
-        => (position - item.rb.ClosestPointOnBounds(position)).sqrMagnitude < radius.Pow(2));
+        => (position - item.physicBody.rigidBody.ClosestPointOnBounds(position)).sqrMagnitude < radius.Pow(2));
 
     public static IEnumerable<Item> ItemsInRadius(Vector3 position, float radius) {
         return Physics.OverlapSphere(position, radius, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore)
@@ -1495,14 +1495,14 @@ public static class Utils {
         foreach (var item in Item.allActive) {
             if (item.isCulled
                 || item.isCulled
-                || item.rb.isKinematic
+                || item.physicBody.isKinematic
                 || free
                 && (item.mainHandler != null
                     || item.isGripped
                     || item.isTelekinesisGrabbed
                     || item.holder != null)
                 || item == target) continue;
-            var toItem = item.rb.worldCenterOfMass
+            var toItem = item.physicBody.worldCenterOfMass
                              - ray.origin;
             var itemDistance = toItem.sqrMagnitude;
 
@@ -1520,7 +1520,7 @@ public static class Utils {
 
     public static void AddForce(this Creature creature, Vector3 force, ForceMode mode) {
         foreach (var part in creature.ragdoll.parts) {
-            part.rb.AddForce(force, mode);
+            part.physicBody.AddForce(force, mode);
         }
     }
 
@@ -1723,7 +1723,7 @@ public class CreatureModifier : MonoBehaviour {
     public virtual void OnApply() { }
 }
 
-class RigidbodyModifier : MonoBehaviour {
+class PhysicBodyModifier : MonoBehaviour {
     struct Modifier {
         public int priority;
         public float? gravity;

@@ -1,10 +1,13 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Net.Mime;
 using System.Runtime.InteropServices;
 using ExtensionMethods;
 using GestureEngine;
+using Newtonsoft.Json;
 using ThunderRoad;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -43,12 +46,18 @@ public class TutorialSave : CustomData {
     }
 
     public static void Save() {
-        DataManager.SaveLocalFile(local, "wand.sav");
+        File.WriteAllText(GetWandSavePath(),
+            JsonConvert.SerializeObject(local, typeof(TutorialData), Catalog.jsonSerializerSettings));
+    }
+
+    public static string GetWandSavePath() {
+        return GameManager.platform.TryGetSavePath(out string path) ? Path.Combine(path, "wand.sav") : null;
     }
 
     public static TutorialSave Load() {
         try {
-            _local = DataManager.LoadLocalFile<TutorialSave>("wand.sav");
+            _local = JsonConvert.DeserializeObject<TutorialSave>(File.ReadAllText(GetWandSavePath()),
+                Catalog.jsonSerializerSettings);
         } catch {
             _local = null;
         }

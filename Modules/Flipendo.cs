@@ -33,7 +33,7 @@ public class Flipendo : WandModule {
             creature.ragdoll.SetState(Ragdoll.State.Destabilized);
             creature.AddForce(direction * creatureForce, ForceMode.VelocityChange);
         } else if (entity.item is Item otherItem) {
-            otherItem.rb.AddForce(direction * itemForce, ForceMode.VelocityChange);
+            otherItem.physicBody.AddForce(direction * itemForce, ForceMode.VelocityChange);
         }
 
         wand.module.shoveEffectData.Spawn(entity.transform).Play();

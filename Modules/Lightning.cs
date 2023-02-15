@@ -27,7 +27,7 @@ public class Lightning : WandModule {
         float arcWhooshIntensity = 0;
         arcStaffEffect.Play();
         Vector3 force = wand.tip.forward
-                        * (Mathf.Clamp(item.rb.GetPointVelocity(wand.tip.position).magnitude, 0.0f,
+                        * (Mathf.Clamp(item.physicBody.GetPointVelocity(wand.tip.position).magnitude, 0.0f,
                                spell.maxBeamNodeInputVelocity)
                            * spell.beamNodeVelocityMult);
         item.Haptic(0.5f);
@@ -40,14 +40,14 @@ public class Lightning : WandModule {
                 prevNode = nextNode;
                 nextNode = LightningTrailNode.New(wand.tip.position, spell, wand.tip, prevNode);
                 force = wand.tip.forward
-                        * (Mathf.Clamp(item.rb.GetPointVelocity(wand.tip.position).magnitude, 0,
+                        * (Mathf.Clamp(item.physicBody.GetPointVelocity(wand.tip.position).magnitude, 0,
                                spell.maxBeamNodeInputVelocity)
                            * spell.beamNodeVelocityMult);
                 prevNode.rb.AddForce(force, ForceMode.VelocityChange);
             }
 
-            if (!item.rb.IsSleeping()) {
-                Vector3 pointVelocity = item.rb.GetPointVelocity(wand.tip.position);
+            if (!item.physicBody.IsSleeping()) {
+                Vector3 pointVelocity = item.physicBody.GetPointVelocity(wand.tip.position);
                 arcWhooshIntensity = Mathf.Lerp(arcWhooshIntensity,
                     Mathf.InverseLerp(5, 12, pointVelocity.magnitude), 0.1f);
                 arcStaffEffect.SetSpeed(arcWhooshIntensity);
@@ -69,7 +69,7 @@ public class Lightning : WandModule {
         item.Haptic(0.5f);
         nextNode.rb.AddForce(
             wand.tip.forward
-            * (Mathf.Clamp(item.rb.GetPointVelocity(wand.tip.position).magnitude, 0.0f,
+            * (Mathf.Clamp(item.physicBody.GetPointVelocity(wand.tip.position).magnitude, 0.0f,
                    spell.maxBeamNodeInputVelocity)
                * spell.beamNodeVelocityMult), ForceMode.VelocityChange);
     }

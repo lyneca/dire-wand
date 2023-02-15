@@ -89,10 +89,10 @@ public class Entity : MonoBehaviour {
         if (creature) {
             return creature.ragdoll.state == Ragdoll.State.NoPhysic
                 ? creature.locomotion.rb
-                : creature.GetTorso().rb;
+                : creature.GetTorso().physicBody.rigidBody;
         }
 
-        return handler?.rb;
+        return handler?.physicBody.rigidBody;
     }
 
     public void SetPhysicModifier(object obj, float? gravity = null, float mass = 1, float drag = -1, float angularDrag = -1) {
@@ -127,7 +127,7 @@ public class Entity : MonoBehaviour {
             handler.item.Depenetrate();
             handler.SetPhysicModifier(this, 0);
             handler.item.SetColliderLayer(GameManager.GetLayer(LayerName.MovingItem));
-            handler.item.rb.collisionDetectionMode = Catalog.gameData.collisionDetection.telekinesis;
+            handler.item.physicBody.collisionDetectionMode = Catalog.gameData.collisionDetection.telekinesis;
             handler.item.forceThrown = true;
             handler.item.Throw();
         }
@@ -344,7 +344,7 @@ public class ItemModuleWand : ItemModule {
     public override void OnItemDataRefresh(ItemData data) {
         base.OnItemDataRefresh(data);
         try {
-            var modData = JsonConvert.DeserializeObject<ModData>(
+            var modData = JsonConvert.DeserializeObject<ModManager.ModData>(
                 FileManager.ReadAllText(FileManager.Type.JSONCatalog, FileManager.Source.Mods,
                     FileManager.aaModPath + "/Wand/manifest.json"), Catalog.GetJsonNetSerializerSettings());
             if (modData != null)
@@ -612,7 +612,7 @@ public class WandBehaviour : MonoBehaviour {
         tipLookRay.direction = Vector3.Slerp(tipLookRay.direction, Player.local.head.transform.forward, 0.5f);
         tipPlayerRay.origin = Player.local.transform.InverseTransformPoint(tipRay.origin);
         tipPlayerRay.direction = Player.local.transform.InverseTransformDirection(tipRay.direction);
-        tipVelocity = item.rb.GetPointVelocity(tipLookRay.origin)
+        tipVelocity = item.physicBody.GetPointVelocity(tipLookRay.origin)
                       - Player.local.locomotion.rb.GetPointVelocity(tipLookRay.origin);
         localTipVelocity = tip.transform.InverseTransformVector(tipVelocity);
         tipViewVelocity = Player.local.head.transform.InverseTransformVector(tipVelocity);
@@ -1044,7 +1044,7 @@ public class WandBehaviour : MonoBehaviour {
                 var otherItem = Item.allActive[index];
 
                 if (otherItem.isCulled
-                    || otherItem.rb.isKinematic
+                    || otherItem.physicBody.isKinematic
                     || otherItem.mainHandler != null
                     || otherItem.holder != null
                     || otherItem == item) continue;

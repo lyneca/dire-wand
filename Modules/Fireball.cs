@@ -41,7 +41,7 @@ public class Fireball : WandModule {
                 }
             }
 
-            projectile.rb.useGravity = false;
+            projectile.physicBody.useGravity = false;
 
             var component = projectile.GetComponent<ItemMagicProjectile>();
             component.guidance = GuidanceMode.NonGuided;

@@ -2,6 +2,7 @@
 	<s:Boolean x:Key="/Default/AddReferences/RecentPaths/=D_003A_005CGames_005COculus_005CSoftware_005CSoftware_005Cwarpfrog_002Dblade_002Dsorcery_005CBladeAndSorcery_005FData_005CManaged_005CThunderRoad_002Edll/@EntryIndexedValue">True</s:Boolean>
 	<s:Boolean x:Key="/Default/AddReferences/RecentPaths/=D_003A_005CGames_005COculus_005CSoftware_005CSoftware_005Cwarpfrog_002Dblade_002Dsorcery_005CBladeAndSorcery_005FData_005CStreamingAssets_005CMods_005CDebugViz_005CDebugViz_002Edll/@EntryIndexedValue">True</s:Boolean>
 	<s:Boolean x:Key="/Default/AddReferences/RecentPaths/=D_003A_005CGames_005COculus_005CSoftware_005CSoftware_005Cwarpfrog_002Dblade_002Dsorcery_005CBladeAndSorcery_005FData_005CStreamingAssets_005CMods_005CWand_005C0Harmony_002Edll/@EntryIndexedValue">True</s:Boolean>
+	<s:Boolean x:Key="/Default/AddReferences/RecentPaths/=D_003A_005CGames_005CSteam_005Csteamapps_005Ccommon_005CBlade_0020_0026_0020Sorcery_005CBladeAndSorcery_005FData_005CManaged_005CThunderRoad_002Edll/@EntryIndexedValue">True</s:Boolean>
 	<s:String x:Key="/Default/CodeInspection/Highlighting/AnalysisEnabled/@EntryValue">SOLUTION</s:String>
 	<s:Int64 x:Key="/Default/Environment/Hierarchy/Build/BuildTool/MsbuildVersion/@EntryValue">1114112</s:Int64>
 	<s:String x:Key="/Default/Environment/Hierarchy/Build/BuildTool/CustomBuildToolPath/@EntryValue">C:\Program Files\JetBrains\JetBrains Rider 2022.2.3\tools\MSBuild\Current\Bin\MSBuild.exe</s:String>

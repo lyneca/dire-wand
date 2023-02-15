@@ -61,16 +61,16 @@ public class SlowZone : WandModule {
                       < currentRadius,
                 () => {
                     bubbleEnterEffectData.Spawn(item.transform).Play();
-                    GameManager.audioMixerSnapshotUnderwater.TransitionTo(0.0f);
+                    SnapshotTool.DoSnapshotTransition(ThunderRoadSettings.audioMixerSnapshotDefault, 0.0f);
                 },
-                () => GameManager.audioMixerSnapshotDefault.TransitionTo(0.0f));
+                () => SnapshotTool.DoSnapshotTransition(ThunderRoadSettings.audioMixerSnapshotUnderwater, 0.0f));
 
         foreach (var effectMesh in effect.effects.OfType<EffectMesh>())
             effectMesh.meshRenderer.shadowCastingMode = ShadowCastingMode.Off;
 
         effect.SetIntensity(0);
         effect.Play();
-        wand.item.rb.isKinematic = true;
+        wand.item.physicBody.isKinematic = true;
         wand.item.disallowDespawn = true;
         var returnBehaviour = wand.item.gameObject.GetComponent<ItemAlwaysReturnsInInventory>();
         if (returnBehaviour) {
@@ -109,9 +109,9 @@ public class SlowZone : WandModule {
 
         GameManager.local.StartCoroutine(Utils.LoopOver(time => effect.SetIntensity(radiusCurve.Evaluate(1 - time)),
             0.3f, () => effect.End()));
-        GameManager.audioMixerSnapshotDefault.TransitionTo(0.0f);
+        SnapshotTool.DoSnapshotTransition(ThunderRoadSettings.audioMixerSnapshotDefault, 0.0f);
 
-        wand.item.rb.isKinematic = false;
+        wand.item.physicBody.isKinematic = false;
         if (returnBehaviour) {
             returnBehaviour.SetField("active", true);
         }
@@ -124,7 +124,7 @@ public class SlowZone : WandModule {
         Object.Destroy(trigger.gameObject);
 
         foreach (var rigidbody in rigidbodies) {
-            rigidbody?.GetComponent<RigidbodyModifier>()?.RemoveModifier(this);
+            rigidbody?.GetComponent<PhysicBodyModifier>()?.RemoveModifier(this);
         }
     }
         

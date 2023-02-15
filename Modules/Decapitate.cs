@@ -34,7 +34,7 @@ public class Decapitate : WandModule {
         wand.target.creature.ragdoll.GetPart(RagdollPart.Type.Neck).TrySlice();
         wand.RunAfter(
             () => {
-                wand.target.creature.ragdoll.headPart.rb.AddForce(Vector3.up * 5f, ForceMode.VelocityChange);
+                wand.target.creature.ragdoll.headPart.physicBody.AddForce(Vector3.up * 5f, ForceMode.VelocityChange);
             }, 0.1f);
         wand.target.creature.Kill();
         wand.canRestart = true;

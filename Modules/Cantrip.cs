@@ -51,7 +51,7 @@ public class Cantrip : WandModule {
             if (container.GetField<Holder>("corkHolder")?.UnSnapOne() is Item cork) {
                 cork.IgnoreObjectCollision(targetItem);
                 cork.RunAfter(() => cork.ResetObjectCollision());
-                cork.rb.AddForce((cork.transform.position - targetItem.transform.position).normalized * 2f, ForceMode.VelocityChange);
+                cork.physicBody.AddForce((cork.transform.position - targetItem.transform.position).normalized * 2f, ForceMode.VelocityChange);
             }
         }
         

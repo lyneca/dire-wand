@@ -40,7 +40,7 @@ public class Expelliarmus : WandModule {
     public IEnumerator ArcToHand(Item item, RagdollHand hand) {
         if (item == null) yield break;
         wand.target = null;
-        item.rb.AddForce(Vector3.up * 10, ForceMode.VelocityChange);
+        item.physicBody.AddForce(Vector3.up * 10, ForceMode.VelocityChange);
 
         float startTime = Time.time;
         bool wasGripping = hand.IsGripping();
@@ -49,9 +49,9 @@ public class Expelliarmus : WandModule {
                 || item.mainHandler != null
                 || item.isTelekinesisGrabbed) break;
             var itemToHand = hand.transform.position - item.transform.position;
-            item.rb.AddForce(itemToHand * wand.module.disarmHandForceMultiplier,
+            item.physicBody.AddForce(itemToHand * wand.module.disarmHandForceMultiplier,
                 ForceMode.Acceleration);
-            item.rb.velocity = Vector3.Lerp(item.rb.velocity,
+            item.physicBody.velocity = Vector3.Lerp(item.physicBody.velocity,
                 itemToHand.normalized * 5,
                 (Time.time - startTime) / 2 * Time.deltaTime * 10);
             if (!wasGripping

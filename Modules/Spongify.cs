@@ -35,7 +35,7 @@ public class BounceBehaviour : MonoBehaviour {
         if (item == null) return;
         this.module = module;
         active = true;
-        item.rb.AddForce(Vector3.up * (6 * Random.Range(1f, 3f)), ForceMode.VelocityChange);
+        item.physicBody.AddForce(Vector3.up * (6 * Random.Range(1f, 3f)), ForceMode.VelocityChange);
     }
 
     public void Deactivate() => active = false;
@@ -54,6 +54,6 @@ public class BounceBehaviour : MonoBehaviour {
     public void OnCollision(CollisionInstance collision) {
         module.bounceEffectData.Spawn(collision.contactPoint, Quaternion.LookRotation(collision.contactNormal))
             .Play();
-        if (active) item.rb.velocity = Vector3.Reflect(collision.impactVelocity * 1.1f, collision.contactNormal);
+        if (active) item.physicBody.velocity = Vector3.Reflect(collision.impactVelocity * 1.1f, collision.contactNormal);
     }
 }

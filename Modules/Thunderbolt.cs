@@ -118,7 +118,7 @@ public class Thunderbolt : WandModule {
             target.creature.Kill();
             target.creature.ragdoll.SliceAll();
             for (var i = 0; i < target.creature.ragdoll.parts.Count; i++) {
-                target.creature.ragdoll.parts[i].rb.AddForce((Vector3.up * 2 + Random.onUnitSphere * 3) * 3,
+                target.creature.ragdoll.parts[i].physicBody.AddForce((Vector3.up * 2 + Random.onUnitSphere * 3) * 3,
                     ForceMode.VelocityChange);
             }
         }

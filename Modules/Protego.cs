@@ -33,9 +33,9 @@ public class Protego : WandModule {
             var item = items[i];
             if (Vector3.Distance(item.transform.position, Player.local.head.transform.position) > 4
                 || item.mainHandler != null) continue;
-            item.rb.velocity
-                = item.rb.HomingThrow(
-                    Vector3.Reflect(item.rb.velocity,
+            item.physicBody.velocity
+                = item.physicBody.rigidBody.HomingThrow(
+                    Vector3.Reflect(item.physicBody.velocity,
                         (item.transform.position - Player.local.head.transform.position).normalized), 30);
             item.ResetRagdollCollision();
             item.SetColliderAndMeshLayer(GameManager.GetLayer(LayerName.MovingItem));

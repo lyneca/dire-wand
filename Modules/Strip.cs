@@ -64,7 +64,7 @@ public class Strip : WandModule {
                     var creature = wand.target.creature;
                     item.IgnoreRagdollCollision(creature.ragdoll);
                     item.RunAfter(item.ResetRagdollCollision, 0.8f);
-                    item.rb.AddForce(force * 8, ForceMode.VelocityChange);
+                    item.physicBody.AddForce(force * 8, ForceMode.VelocityChange);
                 });
             }
         }
