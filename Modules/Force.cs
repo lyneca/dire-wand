@@ -25,7 +25,7 @@ public class Force : WandModule {
             .normalized;
         var hitRBs = new HashSet<Rigidbody>();
         var shockwavePoint = handMidpoint + direction * 1.5f;
-        //wand.module.SpawnShockwave(shockwavePoint, Player.local.head.transform.position - shockwavePoint);
+        wand.module.SpawnShockwave(shockwavePoint, Player.local.head.transform.position - shockwavePoint);
         wand.holdingHand.HapticTick();
         wand.otherHand.HapticTick();
         wand.module.shoveEffectData.Spawn(shockwavePoint, Quaternion.identity).Play();
@@ -38,24 +38,22 @@ public class Force : WandModule {
                 if (rb.GetComponentInParent<Player>() != null) continue;
                 if (rb.GetComponentInParent<Creature>() is Creature creature) {
                     creature.TryPush(Creature.PushType.Magic, direction, 3);
+                    if (!creature.isKilled)
+                        creature.ragdoll.SetState(Ragdoll.State.Destabilized);
+                    creature.Inflict<Floating>(this, 3);
                 }
 
-                if (rb.GetComponentInParent<Item>()?.mainHandler?.creature?.isPlayer == true) continue;
+                if (rb.GetComponentInParent<Item>() is Item hitItem) {
+                    if (hitItem.mainHandler?.creature?.isPlayer == true) continue;
+                    hitItem.Inflict<Floating>(this, 3);
+                }
                 rb.AddForce(
                     direction
                     * (wand.module.forceAmount
                        * rb.GetMassModifier()
                        * Vector3.Distance(hit.attachedRigidbody.transform.position, handMidpoint).Remap01(6, 0)),
                     ForceMode.Impulse);
-                wand.StartCoroutine(SuspendRoutine(rb));
             }
         }
-    }
-        
-    public IEnumerator SuspendRoutine(Rigidbody rb) {
-        return Utils.LoopOver(amount => {
-            rb?.AddModifier(this, 3, 0, 10 * amount);
-            rb?.AddForce(Vector3.up * (Physics.gravity.magnitude * 1.3f), ForceMode.Acceleration);
-        }, 3, () => rb?.RemoveModifier(this));
     }
 }

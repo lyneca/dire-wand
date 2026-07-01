@@ -34,7 +34,7 @@ public class Detonate : WandModule {
                 }
             }
 
-            projectile.rb.useGravity = false;
+            projectile.physicBody.useGravity = false;
 
             var component = projectile.GetComponent<ItemMagicProjectile>();
             component.OnProjectileCollisionEvent += Explosion;
@@ -63,11 +63,11 @@ public class Detonate : WandModule {
         yield return new WaitForSeconds(0.25f);
         if (!component.alive) yield break;
         yield return Utils.LoopOver(value => {
-            component.item.rb.drag = 30 * value;
+            component.item.physicBody.drag = 30 * value;
             component.transform.localScale = Vector3.one * value.Remap(0, 1, 1, 0.0001f);
         }, 0.5f);
         if (!component.alive) yield break;
-        component.item.mainCollisionHandler.SetRigidbody(1, 0f, 0);
+        component.item.mainCollisionHandler.SetPhysicBody(1, 0f, 0);
         component.transform.localScale = Vector3.one;
         yield return new WaitForSeconds(0.25f);
         if (!component.alive) yield break;

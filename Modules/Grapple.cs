@@ -35,7 +35,7 @@ public class Grapple : WandModule {
         grappleLine.Play();
         Player.local.locomotion.SetPhysicModifier(this, 0);
         while (wand.active) {
-            Player.local.locomotion.rb.velocity *= 0.97f;
+            Player.local.locomotion.physicBody.velocity *= 0.97f;
             yield return 0;
         }
 
@@ -47,7 +47,7 @@ public class Grapple : WandModule {
 
         Vector3 force = Vector3.Slerp(velocity.normalized * -1, (hit.point - wand.tip.position).normalized, 0.5f)
                         * (velocity.magnitude * 2f);
-        Player.local.locomotion.rb.AddForce(force, ForceMode.VelocityChange);
+        Player.local.locomotion.physicBody.AddForce(force, ForceMode.VelocityChange);
     }
 
 }

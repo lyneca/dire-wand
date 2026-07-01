@@ -104,7 +104,7 @@ public class MimicBehaviour : MonoBehaviour {
             
         creature.brain.isManuallyControlled = true;
         creature.brain.SetState(Brain.State.Custom);
-        creature.ragdoll.AddPhysicToggleModifier(this);
+        creature.ragdoll.forcePhysic.Add(this);
 
         creature.OnDespawnEvent += time => {
             if (time == EventTime.OnStart) {

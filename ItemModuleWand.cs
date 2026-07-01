@@ -2,17 +2,19 @@
 using SequenceTracker;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
+// using DebugViz;
 using HarmonyLib;
 using ExtensionMethods;
 using GestureEngine;
 using Newtonsoft.Json;
 using ThunderRoad;
 using UnityEngine;
-using UnityEngine.Events;
 using UnityEngine.Pool;
 using UnityEngine.Rendering;
 using UnityEngine.VFX;
 using Object = UnityEngine.Object;
+using Random = UnityEngine.Random;
 
 namespace Wand;
 
@@ -54,12 +56,31 @@ public class Entity : MonoBehaviour {
 
     public Vector3 WorldCenter => creature?.GetTorso().transform.position
                                   ?? item.transform.TransformPoint(item.GetLocalCenter());
-    public bool shouldRelease = true;
-    public UnityEvent<Entity> onReleaseEvent;
-    public bool grabbed;
+    // public bool shouldRelease = true;
+    // public UnityEvent<Entity> onReleaseEvent;
+    // public bool grabbed;
+
+    public void OnNextCollision(Action<CollisionInstance> action, float timeout = Mathf.Infinity) {
+        float startTime = Time.time;
+        void OnCollision(CollisionInstance collision) {
+            if (Time.time - startTime < timeout)
+                action(collision);
+            if (isCreature)
+                creature.ragdoll.rootPart.collisionHandler.OnCollisionStartEvent -= OnCollision;
+            else
+                item.mainCollisionHandler.OnCollisionStartEvent -= OnCollision;
+        }
+        if (isCreature)
+            creature.ragdoll.rootPart.collisionHandler.OnCollisionStartEvent += OnCollision;
+        else
+            item.mainCollisionHandler.OnCollisionStartEvent += OnCollision;
+    }
 
     public void Awake() {
-        onReleaseEvent = new UnityEvent<Entity>();
+        // onReleaseEvent = new UnityEvent<Entity>();
+        breakableJoints ??= new List<SpringJoint>();
+        breakableItems ??= new List<Item>();
+
         if (GetComponent<Creature>() is Creature creature) {
             this.creature = creature;
             isCreature = true;
@@ -76,23 +97,25 @@ public class Entity : MonoBehaviour {
             };
         }
 
-        pid = new RBPID(Rigidbody(), forceMode: ForceMode.Acceleration, maxForce: isCreature ? 30000 : 5000)
-            .Position(isCreature ? 100 : 50, 0, 5);
+        pid = new RBPID(Rigidbody, forceMode: ForceMode.Acceleration, maxForce: isCreature ? 30000 : 5000)
+            .Position(isCreature ? 100 : 50, 0, 5)
+            .Rotation(isCreature ? 100 : 50, 0, 5);
     }
 
     public void Destroy() {
-        Release();
+        // Release();
+        this.ClearAll();
         Destroy(this);
     }
 
     public Rigidbody Rigidbody() {
         if (creature) {
             return creature.ragdoll.state == Ragdoll.State.NoPhysic
-                ? creature.locomotion.rb
-                : creature.GetTorso().rb;
+                ? creature.locomotion.physicBody.rigidBody
+                : creature.GetTorso().physicBody.rigidBody;
         }
 
-        return handler?.rb;
+        return handler?.physicBody.rigidBody;
     }
 
     public void SetPhysicModifier(object obj, float? gravity = null, float mass = 1, float drag = -1, float angularDrag = -1) {
@@ -113,52 +136,7 @@ public class Entity : MonoBehaviour {
         return Rigidbody()?.worldCenterOfMass ?? item.transform.position;
     }
 
-    public void Grab(bool shouldRelease = true, Action<Entity> whileGrabbed = null, Action<Entity> onUnGrab = null) {
-        grabbed = true;
-        this.whileGrabbed = whileGrabbed;
-        this.onUnGrab = onUnGrab;
-        if (creature) {
-            creature.brain.AddNoStandUpModifier(this);
-            creature.ragdoll.SetPhysicModifier(this, 0);
-            creature.ragdoll.AddPhysicToggleModifier(this);
-            if (!creature.isKilled)
-                creature.ragdoll.SetState(Ragdoll.State.Destabilized);
-        } else if (handler) {
-            handler.item.Depenetrate();
-            handler.SetPhysicModifier(this, 0);
-            handler.item.SetColliderLayer(GameManager.GetLayer(LayerName.MovingItem));
-            handler.item.rb.collisionDetectionMode = Catalog.gameData.collisionDetection.telekinesis;
-            handler.item.forceThrown = true;
-            handler.item.Throw();
-        }
-
-        this.shouldRelease = shouldRelease;
-        throwOnRelease = false;
-    }
-
-    public void Update() {
-        if (grabbed && whileGrabbed != null) whileGrabbed.Invoke(this);
-    }
-
-    public void Release() {
-        if (grabbed) {
-            onUnGrab?.Invoke(this);
-            onUnGrab = null;
-        }
-        grabbed = false;
-        onReleaseEvent.Invoke(this);
-        if (creature) {
-            creature.brain.RemoveNoStandUpModifier(this);
-            creature.ragdoll.RemovePhysicModifier(this);
-            creature.ragdoll.RemovePhysicToggleModifier(this);
-        } else if (handler) {
-            handler.RemovePhysicModifier(this);
-            handler.item.forceThrown = false;
-            handler.item.Throw(1, Item.FlyDetection.Forced);
-        }
-    }
-    
-    RBPID pid;
+    public RBPID pid;
 
     public Coroutine PullTowards(Vector3 position) {
         return StartCoroutine(PullTowardsRoutine(position));
@@ -173,6 +151,52 @@ public class Entity : MonoBehaviour {
             if (Vector3.Distance(Transform.position, position) > 1)
                 UpdatePull(position);
         }, maxDuration);
+    }
+
+    private List<SpringJoint> breakableJoints;
+    private List<Item> breakableItems;
+
+    public void PickupBreakables() {
+        if (isCreature || item.GetComponent<BreakableTracker>() is not BreakableTracker tracker) return;
+        
+        DropBreakables();
+
+        foreach (var piece in tracker.otherPieces) {
+            if (piece?.rigidBody && piece.rigidBody.GetComponentInParent<Item>() is Item brokenItem && brokenItem != item) {
+                var joint = item.gameObject.AddComponent<SpringJoint>();
+                joint.autoConfigureConnectedAnchor = false;
+                joint.connectedBody = piece.rigidBody;
+                joint.spring = 30f * piece.rigidBody.mass;
+                joint.damper = 2f * piece.rigidBody.mass;
+                joint.massScale = 0;
+                joint.minDistance = 0;
+                breakableItems.Add(brokenItem);
+                brokenItem.Inflict<Floating>(this, withEffect: false);
+                brokenItem.Inflict<Physical>(this, withEffect: false);
+                joint.maxDistance = 0.2f;
+                breakableJoints.Add(joint);
+            }
+        }
+    }
+
+    public void DropBreakables(WandBehaviour wand = null, bool shouldThrow = false) {
+        foreach (var joint in breakableJoints) {
+            Object.Destroy(joint);
+        }
+
+        foreach (var brokenItem in breakableItems) {
+            if (!brokenItem) continue;
+            brokenItem.Remove<Floating>(this);
+            brokenItem.Remove<Physical>(this);
+            if (wand && shouldThrow) {
+                brokenItem.physicBody.rigidBody.AddForce(
+                    brokenItem.physicBody.rigidBody.HomingThrow(
+                        Quaternion.AngleAxis(Random.Range(0, 30), Random.onUnitSphere) * wand.tipVelocity * 5, 30),
+                    ForceMode.VelocityChange);
+            }
+        }
+        breakableItems.Clear();
+        breakableJoints.Clear();
     }
 }
 
@@ -343,13 +367,11 @@ public class ItemModuleWand : ItemModule {
 
     public override void OnItemDataRefresh(ItemData data) {
         base.OnItemDataRefresh(data);
-        try {
-            var modData = JsonConvert.DeserializeObject<ModData>(
-                FileManager.ReadAllText(FileManager.Type.JSONCatalog, FileManager.Source.Mods,
-                    FileManager.aaModPath + "/Wand/manifest.json"), Catalog.GetJsonNetSerializerSettings());
-            if (modData != null)
-                Debug.Log($"Wand version {modData.ModVersion}");
-        } catch (JsonException) { }
+        // Viz.Init();
+        if (ModManager.loadedMods.FirstOrDefault(mod => mod.Name == "Dire Wand") is ModManager.ModData mod)
+            Debug.Log($"Wand version {mod.ModVersion}");
+        
+        Debug.Log("Found spells: " + ", ".Join(spells));
 
         new Harmony("com.lyneca.dire-wand").PatchAll();
 
@@ -387,6 +409,18 @@ public class ItemModuleWand : ItemModule {
         freezeEffectData = Catalog.GetData<EffectData>(freezeEffectId);
         flamethrowerEffectData = Catalog.GetData<EffectData>(flamethrowerEffectId);
         explosionEffectData = Catalog.GetData<EffectData>(explosionEffectId);
+        
+        EventManager.OnItemBrokenEnd += OnItemBreak;
+    }
+
+    public static void OnItemBreak(Breakable breakable, PhysicBody[] pieces) {
+        foreach (var piece in pieces) {
+            var tracker = piece.rigidBody.GetComponentInParent<Item>().gameObject.AddComponent<BreakableTracker>();
+            tracker.breakable = breakable;
+            tracker.position = breakable.LinkedItem.transform.position;
+            tracker.rotation = breakable.LinkedItem.transform.rotation;
+            tracker.otherPieces = pieces;
+        }
     }
 
     public override void OnItemLoaded(Item item) {
@@ -460,8 +494,12 @@ public class WandBehaviour : MonoBehaviour {
     public bool debug;
     private bool swirling;
     public float swirlMinRadius = 0.05f;
+    public List<Action> onResetActions;
+    public List<Action> untilResetActions;
 
     public void Init() {
+        onResetActions = new List<Action>();
+        untilResetActions = new List<Action>();
         trail = new GameObject("Trail").AddComponent<TrailRenderer>();
         trail.time = 1;
         trail.widthCurve = Utils.Curve(0.001f, 0.0001f);
@@ -512,7 +550,7 @@ public class WandBehaviour : MonoBehaviour {
 
         root = Step.Start(() => {
             item.Haptic(0.7f);
-            SpawnNode();
+            // SpawnNode();
         });
 
         button = root
@@ -612,8 +650,8 @@ public class WandBehaviour : MonoBehaviour {
         tipLookRay.direction = Vector3.Slerp(tipLookRay.direction, Player.local.head.transform.forward, 0.5f);
         tipPlayerRay.origin = Player.local.transform.InverseTransformPoint(tipRay.origin);
         tipPlayerRay.direction = Player.local.transform.InverseTransformDirection(tipRay.direction);
-        tipVelocity = item.rb.GetPointVelocity(tipLookRay.origin)
-                      - Player.local.locomotion.rb.GetPointVelocity(tipLookRay.origin);
+        tipVelocity = item.physicBody.GetPointVelocity(tipLookRay.origin)
+                      - Player.local.locomotion.physicBody.GetPointVelocity(tipLookRay.origin);
         localTipVelocity = tip.transform.InverseTransformVector(tipVelocity);
         tipViewVelocity = Player.local.head.transform.InverseTransformVector(tipVelocity);
         if (item.mainHandler) {
@@ -624,14 +662,14 @@ public class WandBehaviour : MonoBehaviour {
         if (active) {
             angleTurned += Vector3.SignedAngle(lastUp, transform.up, transform.forward);
             lastUp = transform.up;
-            if (debug) {
-                Viz.Lines("swirlCircle")
-                    .SetPoints(GetCircle(PlayerToWorld(midPoint), swirlMinRadius, PlayerToWorld(midPoint) - wandBase.position))
-                    .SetLoop(true)
-                    .Width(0.002f)
-                    .Color(Color.white)
-                    .Show();
-            }
+            // if (debug) {
+            //     Viz.Lines("swirlCircle")
+            //         .SetPoints(GetCircle(PlayerToWorld(midPoint), swirlMinRadius, PlayerToWorld(midPoint) - wandBase.position))
+            //         .SetLoop(true)
+            //         .Width(0.002f)
+            //         .Color(Color.white)
+            //         .Show();
+            // }
 
             if (Time.time - lastPointRecorded > 0.01f) {
                 rollingPoints[rollingIndex] = tipPlayerRay.origin;
@@ -679,6 +717,10 @@ public class WandBehaviour : MonoBehaviour {
         for (var index = 0; index < spells.Count; index++) {
             spells[index].OnUpdate();
         }
+        
+        foreach (var action in untilResetActions) {
+            action?.Invoke();
+        }
 
         if (root.AtEnd() && canRestart && Time.time - lastCast > 0.5f && tipVelocity.magnitude < 1) {
             Reset();
@@ -725,18 +767,18 @@ public class WandBehaviour : MonoBehaviour {
         var midpoint2d = Vector2.zero;
         var normal = PlayerToWorld(midPoint) - wandBase.position;
 
-        var pointViz = Viz
-            .Lines("points")
-            .Color(Color.white)
-            .Width(0.002f);
-        if (debug) {
-            pointViz.Clear();
-        }
+        // var pointViz = Viz
+        //     .Lines("points")
+        //     .Color(Color.white)
+        //     .Width(0.002f);
+        // if (debug) {
+        //     pointViz.Clear();
+        // }
 
         for (var i = 0; i < points.Length; i++) {
             midpoint2d += points[i];
-            if (debug)
-                pointViz.AddPoint(PlayerToWorld(midPoint + points[i].x * axisX + points[i].y * axisY));
+            // if (debug)
+            //     pointViz.AddPoint(PlayerToWorld(midPoint + points[i].x * axisX + points[i].y * axisY));
         }
 
         midpoint2d /= points.Length;
@@ -753,11 +795,11 @@ public class WandBehaviour : MonoBehaviour {
         float r = averageRadius;
         foundMidpoint = midPoint + x * axisX + y * axisY;
         radius = r;
-        if (debug) {
-            for (int i = 0; i < swirlLearnIterations; i++) {
-                Viz.Lines("circle", i.ToString()).Hide();
-            }
-        }
+        // if (debug) {
+        //     for (int i = 0; i < swirlLearnIterations; i++) {
+        //         Viz.Lines("circle", i.ToString()).Hide();
+        //     }
+        // }
 
         for (var i = 0; i < swirlLearnIterations; i++) {
             foundMidpoint = midPoint + x * axisX + y * axisY;
@@ -767,24 +809,24 @@ public class WandBehaviour : MonoBehaviour {
             float error = CalculateError(x, y, r, points);
 
             if (debug) {
-                Viz.Dot("midpoint", worldMidpoint).Color(Color.green);
+                // Viz.Dot("midpoint", worldMidpoint).Color(Color.green);
 
-                Viz.Lines("circle", i.ToString())
-                    .Show()
-                    .SetPoints(GetCircle(worldMidpoint, radius, normal, 24))
-                    .SetLoop(true)
-                    .Width(Mathf.Lerp(0.002f, 0.006f, (float)i / swirlLearnIterations))
-                    .Color(error < swirlBeginTolerance
-                        ? Color.blue
-                        : Color.Lerp(Color.green, Color.red,
-                            error.Remap01(swirlBeginTolerance, swirlBeginTolerance * 10)));
+                // Viz.Lines("circle", i.ToString())
+                //     .Show()
+                //     .SetPoints(GetCircle(worldMidpoint, radius, normal, 24))
+                //     .SetLoop(true)
+                //     .Width(Mathf.Lerp(0.002f, 0.006f, (float)i / swirlLearnIterations))
+                //     .Color(error < swirlBeginTolerance
+                //         ? Color.blue
+                //         : Color.Lerp(Color.green, Color.red,
+                //             error.Remap01(swirlBeginTolerance, swirlBeginTolerance * 10)));
 
-                Viz.Lines("plane")
-                    .SetPoints(GetSquare(worldMidpoint, Player.local.transform.TransformDirection(axisX),
-                        Player.local.transform.TransformDirection(axisY)))
-                    .SetLoop(true)
-                    .Width(0.006f)
-                    .Color(Color.blue);
+                // Viz.Lines("plane")
+                //     .SetPoints(GetSquare(worldMidpoint, Player.local.transform.TransformDirection(axisX),
+                //         Player.local.transform.TransformDirection(axisY)))
+                //     .SetLoop(true)
+                //     .Width(0.006f)
+                //     .Color(Color.blue);
             }
 
             if (error < tolerance) return true;
@@ -954,6 +996,15 @@ public class WandBehaviour : MonoBehaviour {
         for (var index = 0; index < spells.Count; index++) {
             spells[index].OnReset();
         }
+        
+        untilResetActions.Clear();
+
+        foreach (var action in onResetActions) {
+            action?.Invoke();
+        }
+        
+        onResetActions.Clear();
+        
         ClearTarget();
     }
 
@@ -1044,7 +1095,7 @@ public class WandBehaviour : MonoBehaviour {
                 var otherItem = Item.allActive[index];
 
                 if (otherItem.isCulled
-                    || otherItem.rb.isKinematic
+                    || otherItem.physicBody.isKinematic
                     || otherItem.mainHandler != null
                     || otherItem.holder != null
                     || otherItem == item) continue;
@@ -1057,12 +1108,13 @@ public class WandBehaviour : MonoBehaviour {
                     continue;
 
                 var bounds = new Bounds(otherItem.transform.position, Vector3.zero);
-                for (var i = 0; i < otherItem.allColliders.Length; i++) {
-                    if (!otherItem.allColliders[i].Item2) continue;
-                    var collider = otherItem.allColliders[i].Item1;
-                    bounds.Encapsulate(collider.bounds);
+                for (var i = 0; i < otherItem.colliderGroups.Count; i++) {
+                    for (var j = 0; j < otherItem.colliderGroups[i].colliders.Count; j++) {
+                        if (otherItem.colliderGroups[i].colliders[j].enabled) {
+                            bounds.Encapsulate(otherItem.colliderGroups[i].colliders[j].bounds);
+                        }
+                    }
                 }
-
 
                 var entity = otherItem.gameObject.GetOrAddComponent<Entity>();
                 //var box = Viz.Box(entity, "bounds").Size(bounds.size).Color(Color.green);
@@ -1157,9 +1209,9 @@ public class WandBehaviour : MonoBehaviour {
                 .AddForce(target.Rigidbody().HomingThrow(tipVelocity * (target.isCreature ? 15 : 5), 10), ForceMode.VelocityChange);
         }
 
-        if (target.shouldRelease) {
-            target.Release();
-        }
+        // if (target.shouldRelease) {
+        //     target.Release();
+        // }
 
         target = null;
     }
@@ -1186,6 +1238,9 @@ public class WandBehaviour : MonoBehaviour {
         func(targetedItem);
         func(targetedEnemy);
     }
+
+    public void OnReset(Action action) => onResetActions.Add(action);
+    public void UntilReset(Action action) => untilResetActions.Add(action);
 }
 
 public enum SoundType {

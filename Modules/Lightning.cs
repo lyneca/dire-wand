@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using ExtensionMethods;
 using ThunderRoad;
+using ThunderRoad.Skill.Spell;
 using UnityEngine;
 
 namespace Wand; 
@@ -20,34 +21,32 @@ public class Lightning : WandModule {
 
     public IEnumerator LightningBoltRoutine() {
         var spell = Catalog.GetData<SpellCastLightning>("Lightning");
-        var arcStaffEffectData = Catalog.GetData<EffectData>(spell.arcStaffEffectId);
-        var prevNode = LightningTrailNode.New(wand.tip.position, spell);
-        var nextNode = LightningTrailNode.New(wand.tip.position, spell, wand.tip, prevNode);
+        var arcStaffEffectData = Catalog.GetData<EffectData>("SpellLightningArcLoop");
+        var skill = Catalog.GetData<SkillArcwire>("Arcwire");
+        var prevNode = LightningTrailNode.New(wand.tip.position, skill, null, Player.currentCreature);
+        var nextNode
+            = LightningTrailNode.New(wand.tip.position, skill, null, Player.currentCreature, wand.tip, prevNode);
         var arcStaffEffect = arcStaffEffectData.Spawn(wand.tip);
         float arcWhooshIntensity = 0;
         arcStaffEffect.Play();
         Vector3 force = wand.tip.forward
-                        * (Mathf.Clamp(item.rb.GetPointVelocity(wand.tip.position).magnitude, 0.0f,
-                               spell.maxBeamNodeInputVelocity)
-                           * spell.beamNodeVelocityMult);
+                        * (Mathf.Clamp(item.physicBody.GetPointVelocity(wand.tip.position).magnitude, 0.0f, 8) * 2);
         item.Haptic(0.5f);
         prevNode.rb.AddForce(force, ForceMode.VelocityChange);
 
         while (item.mainHandler?.playerHand?.controlHand.alternateUsePressed == true && nextNode != null) {
             if (prevNode == null || (nextNode.transform.position - prevNode.transform.position).magnitude
-                > spell.minBeamNodeDistance) {
+                > 0.3f) {
                 nextNode.transform.SetParent(null);
                 prevNode = nextNode;
-                nextNode = LightningTrailNode.New(wand.tip.position, spell, wand.tip, prevNode);
+                nextNode = LightningTrailNode.New(wand.tip.position, skill, null, Player.currentCreature, wand.tip, prevNode);
                 force = wand.tip.forward
-                        * (Mathf.Clamp(item.rb.GetPointVelocity(wand.tip.position).magnitude, 0,
-                               spell.maxBeamNodeInputVelocity)
-                           * spell.beamNodeVelocityMult);
+                        * (Mathf.Clamp(item.physicBody.GetPointVelocity(wand.tip.position).magnitude, 0, 8) * 2);
                 prevNode.rb.AddForce(force, ForceMode.VelocityChange);
             }
 
-            if (!item.rb.IsSleeping()) {
-                Vector3 pointVelocity = item.rb.GetPointVelocity(wand.tip.position);
+            if (!item.physicBody.IsSleeping()) {
+                Vector3 pointVelocity = item.physicBody.GetPointVelocity(wand.tip.position);
                 arcWhooshIntensity = Mathf.Lerp(arcWhooshIntensity,
                     Mathf.InverseLerp(5, 12, pointVelocity.magnitude), 0.1f);
                 arcStaffEffect.SetSpeed(arcWhooshIntensity);
@@ -69,9 +68,8 @@ public class Lightning : WandModule {
         item.Haptic(0.5f);
         nextNode.rb.AddForce(
             wand.tip.forward
-            * (Mathf.Clamp(item.rb.GetPointVelocity(wand.tip.position).magnitude, 0.0f,
-                   spell.maxBeamNodeInputVelocity)
-               * spell.beamNodeVelocityMult), ForceMode.VelocityChange);
+            * (Mathf.Clamp(item.physicBody.GetPointVelocity(wand.tip.position).magnitude, 0.0f, 8) * 2),
+            ForceMode.VelocityChange);
     }
 
 }

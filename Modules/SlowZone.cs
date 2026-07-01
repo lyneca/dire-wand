@@ -18,22 +18,23 @@ public class SlowZone : WandModule {
     private EffectData bubbleEnterEffectData;
     public AnimationCurve radiusCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
     public float radius = 5;
-    private HashSet<SlowCreatureModifier> creatures;
+    private HashSet<Creature> creatures;
     private HashSet<Rigidbody> rigidbodies;
 
     public override WandModule Clone() {
         var clone = base.Clone() as SlowZone;
-        clone.creatures = new HashSet<SlowCreatureModifier>();
+        clone.creatures = new HashSet<Creature>();
         clone.rigidbodies = new HashSet<Rigidbody>();
         return clone;
     }
 
     public override void OnInit() {
         base.OnInit();
-        EventManager.onItemDespawn += item => item.ClearPhysicModifiers();
+        Item.OnItemDespawn += item => item.ClearPhysicModifiers();
         bubbleEffectData = Catalog.GetData<EffectData>(bubbleEffectId);
         bubbleEnterEffectData = Catalog.GetData<EffectData>(bubbleEnterEffectId);
-        wand.button
+        
+        wand.trigger
             .Then(() => wand.item.isThrowed)
             .Then(() => wand.item.mainCollisionHandler.isColliding)
             .Do(Collision);
@@ -47,7 +48,7 @@ public class SlowZone : WandModule {
         trigger.transform.position = wand.transform.position;
         trigger.SetRadius(0);
         trigger.SetActive(true);
-        creatures = new HashSet<SlowCreatureModifier>();
+        creatures = new HashSet<Creature>();
         rigidbodies = new HashSet<Rigidbody>();
         trigger.SetCallback(Slow);
         trigger.SetLayer(GameManager.GetLayer(LayerName.ItemAndRagdollOnly));
@@ -61,17 +62,17 @@ public class SlowZone : WandModule {
                       < currentRadius,
                 () => {
                     bubbleEnterEffectData.Spawn(item.transform).Play();
-                    GameManager.audioMixerSnapshotUnderwater.TransitionTo(0.0f);
+                    SnapshotTool.DoSnapshotTransition(ThunderRoadSettings.audioMixerSnapshotUnderwater, 0);
                 },
-                () => GameManager.audioMixerSnapshotDefault.TransitionTo(0.0f));
+                () => SnapshotTool.DoSnapshotTransition(ThunderRoadSettings.audioMixerSnapshotDefault, 0));
 
         foreach (var effectMesh in effect.effects.OfType<EffectMesh>())
             effectMesh.meshRenderer.shadowCastingMode = ShadowCastingMode.Off;
 
         effect.SetIntensity(0);
         effect.Play();
-        wand.item.rb.isKinematic = true;
-        wand.item.disallowDespawn = true;
+        wand.item.physicBody.isKinematic = true;
+        wand.item.DisallowDespawn = true;
         var returnBehaviour = wand.item.gameObject.GetComponent<ItemAlwaysReturnsInInventory>();
         if (returnBehaviour) {
             returnBehaviour.SetField("active", false);
@@ -109,16 +110,16 @@ public class SlowZone : WandModule {
 
         GameManager.local.StartCoroutine(Utils.LoopOver(time => effect.SetIntensity(radiusCurve.Evaluate(1 - time)),
             0.3f, () => effect.End()));
-        GameManager.audioMixerSnapshotDefault.TransitionTo(0.0f);
+        SnapshotTool.DoSnapshotTransition(ThunderRoadSettings.audioMixerSnapshotDefault, 0);
 
-        wand.item.rb.isKinematic = false;
+        wand.item.physicBody.isKinematic = false;
         if (returnBehaviour) {
             returnBehaviour.SetField("active", true);
         }
 
         foreach (var creature in creatures) {
             if (creature == null) continue;
-            creature.gameObject.GetComponent<SlowCreatureModifier>().RemoveHandler(this);
+            creature.Remove<Slowed>(this);
         }
 
         Object.Destroy(trigger.gameObject);
@@ -144,24 +145,23 @@ public class SlowZone : WandModule {
     public void Slow(Collider collider, bool enter) {
         if (collider.attachedRigidbody is not Rigidbody rb) return;
         if (rb.GetComponentInParent<Player>()
-            || rb.GetComponentInParent<Item>() is Item item
-            && (item.mainHandler?.creature?.isPlayer == true || item == wand.item))
+            || rb.GetComponentInParent<Item>() is Item rbItem
+            && (rbItem.mainHandler?.creature?.isPlayer == true || rbItem == wand.item))
             return;
 
         if (enter) {
             if (rigidbodies.Contains(rb)) return;
             rigidbodies.Add(rb);
             Creature hitCreature = null;
-            if (rb.GetComponent<Creature>() is Creature creature) {
+            if (rb.GetComponentInParent<Creature>() is Creature creature) {
                 hitCreature = creature;
             } else if (rb.GetComponent<RagdollPart>() is RagdollPart part && part == part.ragdoll.rootPart) {
                 hitCreature = part.ragdoll.creature;
             }
 
             if (hitCreature != null) {
-                var modifier = hitCreature.gameObject.GetOrAddComponent<SlowCreatureModifier>();
-                modifier.AddHandler(this);
-                creatures.Add(modifier);
+                hitCreature.Inflict<Slowed>(this);
+                creatures.Add(hitCreature);
             }
 
             rb.AddModifier(this, 3, 0, 10);
@@ -169,28 +169,11 @@ public class SlowZone : WandModule {
             if (!rigidbodies.Contains(rb)) return;
             rigidbodies.Remove(rb);
             if (rb.GetComponent<Creature>() is Creature creature) {
-                var modifier = creature.gameObject.GetOrAddComponent<SlowCreatureModifier>();
-                modifier.RemoveHandler(this);
-                creatures.Remove(modifier);
+                creature.Remove<Slowed>(this);
+                creatures.Remove(creature);
             }
 
             rb.RemoveModifier(this);
         }
-    }
-}
-
-public class SlowCreatureModifier : CreatureModifier {
-    public override void OnApply() {
-        base.OnApply();
-        creature.ragdoll.AddPhysicToggleModifier(this);
-        creature.animator.speed = 0.1f;
-        creature.locomotion.SetSpeedModifier(this, 0.1f, 0.1f, 0.1f, 0.1f, 0.1f);
-    }
-
-    public override void OnRemove() {
-        base.OnRemove();
-        creature.ragdoll.RemovePhysicToggleModifier(this);
-        creature.animator.speed = 1;
-        creature.locomotion.RemoveSpeedModifier(this);
     }
 }

@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using ExtensionMethods;
 using ThunderRoad;
+using ThunderRoad.Skill.Spell;
 using UnityEngine;
 
 namespace Wand; 
@@ -17,7 +18,7 @@ public class Grenade : WandModule {
     protected SpellGrenade grenade;
     public override void OnInit() {
         base.OnInit();
-        wand.trigger.Then(() => Vector3.Distance(wand.tip.position, wand.otherHand.caster.magic.position) < 0.03f
+        wand.trigger.Then(() => Vector3.Distance(wand.tip.position, wand.otherHand.caster.Orb.position) < 0.03f
                                 && wand.otherHand.caster.isFiring
                                 && wand.otherHand.caster.spellInstance is SpellCastGravity or SpellCastProjectile or SpellCastLightning, "Touch Spell Orb")
             .Do(GrabGrenade, "Grab Grenade")
@@ -44,12 +45,12 @@ public class Grenade : WandModule {
         var caster = wand.otherHand.caster;
         var spell = caster.spellInstance as SpellCastCharge;
         var effect = caster.spellInstance.GetField<EffectInstance>("chargeEffectInstance");
-        var newInstance = spell.GetField<EffectData>("chargeEffectData").Spawn(caster.magic.position,
-            caster.magic.rotation, caster.magic, null, true);
+        var newInstance = spell.GetField<EffectData>("chargeEffectData").Spawn(caster.Orb.position,
+            caster.Orb.rotation, caster.Orb, null, true);
         newInstance.Play();
         spell.SetField("chargeEffectInstance", newInstance);
         spell.currentCharge = 0;
-        tipFollower.transform.position = caster.magic.position;
+        tipFollower.transform.position = caster.Orb.position;
         capturedSpell = spell;
         spellChargeEffect = effect;
         grenade = wand.objectPool.Get().AddComponent<SpellGrenade>();
@@ -106,7 +107,7 @@ public class SpellGrenade : MonoBehaviour {
                 collision.GetContact(0).point,
                 collision.GetContact(0).normal, collision.collider.transform.up,
                 collision.relativeVelocity) as IEnumerator);
-        } else if (spell is SpellCastProjectile fire) {
+        } else if (spell is SpellCastProjectile) {
             Utils.Explosion(collision.GetContact(0).point, 40, 4, true, true, true, false, 20);
             var explosion = wand.module.explosionEffectData
                 .Spawn(collision.GetContact(0).point, Quaternion.identity, null, null, false);

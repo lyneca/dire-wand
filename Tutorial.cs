@@ -5,6 +5,8 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using ExtensionMethods;
 using GestureEngine;
+using JetBrains.Annotations;
+using Newtonsoft.Json;
 using ThunderRoad;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -15,9 +17,9 @@ using Object = UnityEngine.Object;
 namespace Wand;
 
 public class TutorialSave : CustomData {
-    public static TutorialSave _local;
+    public static TutorialSave local;
 
-    public static TutorialSave local => _local ?? Load();
+    public static bool loaded;
 
     public int currentTier = 0;
     public Dictionary<string, bool>[] spellsCast;
@@ -43,25 +45,25 @@ public class TutorialSave : CustomData {
     }
 
     public static void Save() {
-        DataManager.SaveLocalFile(local, "wand.sav");
+        GameManager.local.StartCoroutine(GameManager.platform.WriteSaveCoroutine(new PlatformBase.Save("wand", "sav",
+            JsonConvert.SerializeObject(local, Catalog.GetJsonNetSerializerSettings()))));
     }
 
-    public static TutorialSave Load() {
-        try {
-            _local = DataManager.LoadLocalFile<TutorialSave>("wand.sav");
-        } catch {
-            _local = null;
-        }
-        if (_local != null) return _local;
-        
-        _local = new TutorialSave();
-        Refresh();
-        Save();
-
-        return _local;
+    public static Coroutine Load() {
+        loaded = true;
+        return GameManager.local.StartCoroutine(GameManager.platform.ReadSaveCoroutine("wand", "sav", save => {
+            if (save != null) {
+                local = JsonConvert.DeserializeObject<TutorialSave>(save.data);
+            } else {
+                local = new TutorialSave();
+                Refresh();
+                Save();
+            }
+        }));
     }
 
     public static void Cast(int tier, string title) {
+        if (local == null) return;
         if (local.spellsCast[tier].TryGetValue(title, out bool cast) && cast) return;
         local.spellsCast[tier][title] = true;
         Refresh();
@@ -69,6 +71,7 @@ public class TutorialSave : CustomData {
     }
 
     public static bool HasCast(string title) {
+        if (!loaded || local == null) return false;
         foreach (var dict in local.spellsCast) {
             if (dict.TryGetValue(title, out bool cast)) return cast;
         }
@@ -77,13 +80,13 @@ public class TutorialSave : CustomData {
     }
 
     public static void Refresh() {
-        if (local.currentTier >= local.numTiers - 1) return;
+        if (!loaded || local == null || local.currentTier >= local.numTiers - 1) return;
         foreach (var kvp in local.spellsCast[local.currentTier]) {
             if (!kvp.Value) return;
         }
 
         local.currentTier++;
-        DisplayMessage.instance.ShowMessage(new DisplayMessage.MessageData($"Tier {local.currentTier + 1} Dire Wand spell tutorials unlocked.", "", "", "", 1));
+        DisplayMessage.instance.ShowMessage(new DisplayMessage.MessageData($"Tier {local.currentTier + 1} Dire Wand spell tutorials unlocked.", 1, dismissAutomatically: true, dismissTime: 5));
     }
 }
 
@@ -100,6 +103,7 @@ public class Tutorial : WandModule {
     private TutorialWindow window;
     private List<TutorialOrb> orbs;
     private int rows;
+    public TextMesh titleText;
     public StateTracker state;
 
     public GameObject wandPrefab;
@@ -117,13 +121,8 @@ public class Tutorial : WandModule {
         return clone;
     }
 
-    public override void OnInit() {
-        base.OnInit();
-        
-        Catalog.LoadAssetAsync<GameObject>("Lyneca.Wand.Tutorial.HandLeft", obj => handLeftPrefab = obj, "Wand Tutorial");
-        Catalog.LoadAssetAsync<GameObject>("Lyneca.Wand.Tutorial.HandRight", obj => handRightPrefab = obj, "Wand Tutorial");
-        Catalog.LoadAssetAsync<GameObject>("Lyneca.Wand.Tutorial.Wand", obj => wandPrefab = obj, "Wand Tutorial");
-
+    public IEnumerator LoadSave() {
+        yield return TutorialSave.Load();
         orbs = new List<TutorialOrb>();
         tutorials ??= new List<TutorialData>();
         for (var i = 0; i < TutorialSave.local.numTiers; i++) {
@@ -141,18 +140,28 @@ public class Tutorial : WandModule {
                     videoAddresses = new List<string>(spell.videoAddresses ?? new List<string>())
                 });
             }
+
+            for (var index = 0; index < tutorials.Count; index++) {
+                var tutorial = tutorials[index];
+                tutorial.Load(this);
+            }
         }
 
         rows = tutorials.Count / cols;
-            
+    }
+
+    public override void OnInit() {
+        base.OnInit();
+
+        wand.StartCoroutine(LoadSave());
+        
+        Catalog.LoadAssetAsync<GameObject>("Lyneca.Wand.Tutorial.HandLeft", obj => handLeftPrefab = obj, "Wand Tutorial");
+        Catalog.LoadAssetAsync<GameObject>("Lyneca.Wand.Tutorial.HandRight", obj => handRightPrefab = obj, "Wand Tutorial");
+        Catalog.LoadAssetAsync<GameObject>("Lyneca.Wand.Tutorial.Wand", obj => wandPrefab = obj, "Wand Tutorial");
+
         Catalog.LoadAssetAsync<GameObject>(tutorialPrefabAddress, prefab => tutorialPrefab = prefab, "TutorialModule");
         Catalog.LoadAssetAsync<Material>(iconMatAddress, mat => iconMat = mat, "TutorialModule");
             
-        for (var index = 0; index < tutorials.Count; index++) {
-            var tutorial = tutorials[index];
-            tutorial.Load(this);
-        }
-
         wand.button
             .Then(() => wand.holdingHand.Buttoning() && wand.holdingHand.Triggering(), "Hold Button and Trigger", 1f)
             .Do(() => wand.StartCoroutine(Open()), "Open Tutorial");
@@ -162,10 +171,15 @@ public class Tutorial : WandModule {
 
         state = new StateTracker()
             .On(() => wand.item.mainHandler?.Triggering() == true, TrySelect);
+
+        wand.item.OnDespawnEvent += time => {
+            if (time == EventTime.OnStart) Close();
+        };
     }
 
     public IEnumerator Open() {
         MarkCasted();
+        open = true;
         var i = 0;
         if (handLeft) Object.Destroy(handLeft);
         if (handRight) Object.Destroy(handRight);
@@ -208,7 +222,13 @@ public class Tutorial : WandModule {
         var active = true;
         TutorialOrb selectedOrb = null;
         GestureStep lastGesture = null;
-            
+
+        titleText = new GameObject().AddComponent<TextMesh>();
+        titleText.fontSize = 500;
+        titleText.transform.localScale = Vector3.one * 0.005f;
+        titleText.alignment = TextAlignment.Center;
+        titleText.anchor = TextAnchor.MiddleCenter;
+        
         while (active) {
             switch (debounce) {
                 case 0 when !wand.holdingHand.Buttoning():
@@ -223,6 +243,10 @@ public class Tutorial : WandModule {
             }
 
             if (window) {
+                if (titleText) {
+                    titleText.text = "";
+                }
+
                 var position = Player.local.head.transform.position - Vector3.up * 0.5f
                                + Vector3.ProjectOnPlane(Player.local.head.transform.forward, Vector3.up).normalized
                                * distance
@@ -270,7 +294,20 @@ public class Tutorial : WandModule {
                         selectedOrb.highlighted = true;
                     }
                 }
+                
                 state.Update();
+                if (titleText) {
+                    titleText.transform.position = Vector3.Lerp(titleText.transform.position,
+                        Player.local.head.transform.position
+                        - Player.local.head.transform.up * 0.3f
+                        + Player.local.head.transform.forward.normalized
+                        * (distance * 0.7f), Time.deltaTime * 20);
+                    titleText.transform.rotation
+                        = Quaternion.LookRotation(Vector3.ProjectOnPlane(Player.local.head.transform.forward,
+                            Vector3.up));
+                    titleText.text = selectedOrb?.data.title ?? "";
+                }
+
                 for (var index = 0; index < orbs.Count; index++) {
                     var orb = orbs[index];
                     UpdateOrb(orb, index);
@@ -293,6 +330,7 @@ public class Tutorial : WandModule {
     }
 
     private Vector3 lookDir;
+    private bool open;
 
     public void UpdateOrb(TutorialOrb orb, int index) {
         int row = rows - index / cols;
@@ -338,12 +376,18 @@ public class Tutorial : WandModule {
     }
 
     public void Close() {
+        open = false;
         wand.item.Haptic(1);
         for (var index = 0; index < orbs.Count; index++) {
             var orb = orbs[index];
             Object.Destroy(orb.gameObject);
         }
         orbs.Clear();
+
+        if (titleText != null) {
+            Object.Destroy(titleText.gameObject);
+            titleText = null;
+        }
 
         if (window) {
             Object.Destroy(handLeft);

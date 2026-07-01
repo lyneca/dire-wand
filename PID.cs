@@ -1,3 +1,4 @@
+using System;
 using ExtensionMethods;
 using UnityEngine;
 
@@ -53,15 +54,25 @@ public class PID {
 public class RBPID {
     public PID velocityPID;
     public PID headingPID;
-    public Rigidbody rb;
+    public Func<Rigidbody> rbFunc;
 
     private ForceMode forceMode;
 
     public bool isActive;
     private float maxForce;
 
+    public Rigidbody RB => rbFunc();
+
+    public RBPID(Func<Rigidbody> rigidbody, float p = 1, float i = 0, float d = 0.3f, ForceMode forceMode = ForceMode.Force, float maxForce = 100) {
+        rbFunc = rigidbody;
+        isActive = true;
+        this.maxForce = maxForce;
+        this.forceMode = forceMode;
+        velocityPID = new PID(p, i, d);
+        headingPID = new PID(p, i, d);
+    }
     public RBPID(Rigidbody rigidbody, float p = 1, float i = 0, float d = 0.3f, ForceMode forceMode = ForceMode.Force, float maxForce = 100) {
-        rb = rigidbody;
+        rbFunc = () => rigidbody;
         isActive = true;
         this.maxForce = maxForce;
         this.forceMode = forceMode;
@@ -90,24 +101,24 @@ public class RBPID {
         if (!isActive)
             return;
         if (Time.deltaTime == 0 || Time.deltaTime == float.NaN) return;
-        var force = velocityPID.Update(targetPos - rb.transform.position, Time.deltaTime) * forceMult;
-        rb.AddForce(force.SafetyClamp(maxForce), forceMode);
+        var force = velocityPID.Update(targetPos - RB.transform.position, Time.deltaTime) * forceMult;
+        RB.AddForce(force.SafetyClamp(maxForce), forceMode);
     }
 
     public void UpdateTorque(Quaternion targetRot, float forceMult = 1f, float slowMult = 1f) {
         if (!isActive)
             return;
         if (Time.deltaTime == 0 || Time.deltaTime == float.NaN) return;
-        var rotation = (Vector3.Cross(rb.transform.rotation * Vector3.forward, targetRot * Vector3.forward)
+        var rotation = (Vector3.Cross(RB.transform.rotation * Vector3.forward, targetRot * Vector3.forward)
                         + Vector3.Cross(
-                            rb.transform.rotation
+                            RB.transform.rotation
                             * Vector3.up,
                             targetRot * Vector3.up)).normalized
-                       * Quaternion.Angle(rb.transform.rotation, targetRot)
+                       * Quaternion.Angle(RB.transform.rotation, targetRot)
                        / 360;
 
         var torque = headingPID.Update(rotation, Time.deltaTime) * forceMult;
-        rb.AddTorque(torque.SafetyClamp(maxForce), forceMode);
+        RB.AddTorque(torque.SafetyClamp(maxForce), forceMode);
     }
 
     public void Reset() {

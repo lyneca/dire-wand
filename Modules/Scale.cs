@@ -62,11 +62,11 @@ public class Scale : WandModule {
 
         public void Awake() {
             item = GetComponent<Item>();
-            originalMass = item.rb.mass;
+            originalMass = item.physicBody.mass;
             mass = originalMass;
             originalDataMass = item.data.mass;
-            originalDrag = item.rb.drag;
-            originalAngularDrag = item.rb.angularDrag;
+            originalDrag = item.physicBody.drag;
+            originalAngularDrag = item.physicBody.angularDrag;
         }
 
         public override void SetBounds(float lower, float upper) {
@@ -85,20 +85,20 @@ public class Scale : WandModule {
         }
 
         public void Update() {
-            item.rb.mass = mass;
+            item.physicBody.mass = mass;
             if (!item.isTelekinesisGrabbed)
-                item.rb.ResetCenterOfMass();
+                item.physicBody.ResetCenterOfMass();
         }
 
         public override float Scale(float scale) {
             float size = Mathf.Clamp(scale * currentScale, lowerScaleLimit, upperScaleLimit);
             item.transform.localScale = Vector3.one * size;
-            item.rb.mass = IncreaseMass(originalMass, size);
+            item.physicBody.mass = IncreaseMass(originalMass, size);
             item.data.mass = IncreaseMass(originalDataMass, size);
-            mass = item.rb.mass;
-            item.rb.drag = originalDrag * size;
-            item.rb.angularDrag = originalAngularDrag * size;
-            item.rb.ResetCenterOfMass();
+            mass = item.physicBody.mass;
+            item.physicBody.drag = originalDrag * size;
+            item.physicBody.angularDrag = originalAngularDrag * size;
+            item.physicBody.ResetCenterOfMass();
             item.handles?.ForEach(handle => {
                 handle.CalculateReach();
             });
@@ -134,7 +134,7 @@ public class Scale : WandModule {
 
         public static void ScaleItem(Item item, float scale) {
             item.transform.localScale = Vector3.one * scale;
-            item.rb.ResetCenterOfMass();
+            item.physicBody.ResetCenterOfMass();
             item.handles.ForEach(handle => {
                 handle.CalculateReach();
             });

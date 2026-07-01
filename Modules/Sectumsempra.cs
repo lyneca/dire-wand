@@ -27,7 +27,7 @@ public class Sectumsempra : WandModule {
                 wand.Flick(AxisDirection.Left),
                 wand.Brandish())
             .Do(() => {
-                Entity entity = wand.TargetCreature(effectArgs);
+                var entity = wand.TargetCreature(effectArgs);
                 wand.RunAfter(() => BleedEnemy(entity.creature), 0.3f);
             }, "Sectumsempra");
         damager = wand.objectPool.Get().AddComponent<Damager>();
@@ -40,7 +40,7 @@ public class Sectumsempra : WandModule {
     }
 
     public IEnumerator Bleed(Creature creature) {
-        creature.ragdoll.AddPhysicToggleModifier(this);
+        creature.ragdoll.forcePhysic.Add(this);
         while (!creature.isKilled) {
             try {
                 Slice(creature);

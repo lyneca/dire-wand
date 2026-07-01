@@ -5,6 +5,9 @@ using UnityEngine;
 namespace Wand; 
 
 public class Basic : WandModule {
+    public Color? startColor;
+    public Color? endColor;
+    public float damage = 10;
     private Gradient gradient;
     private EffectData fireEffectData;
     private EffectData hitEffectData;
@@ -15,7 +18,11 @@ public class Basic : WandModule {
         fireEffectData = Catalog.GetData<EffectData>("WandBasicCast");
         hitEffectData = Catalog.GetData<EffectData>("WandBasicHit");
 
-        gradient = Utils.FadeInOutGradient(Utils.HexColor(191, 3, 0, 3.4f), Utils.HexColor(191, 5, 5, 4.6f));
+        gradient = Utils.FadeInOutGradient(startColor ?? Utils.HexColor(191, 3, 0, 3.4f), endColor ?? Utils.HexColor(191, 5, 5, 4.6f));
+        var colorStart = Utils.HexColor(191, 3, 0, 3.4f);
+        var colorEnd = Utils.HexColor(191, 5, 5, 4.6f);
+        Debug.Log($"Start: {colorStart.r}, {colorStart.g}, {colorStart.b}, {colorStart.a}");
+        Debug.Log($"End: {colorEnd.r}, {colorEnd.g}, {colorEnd.b}, {colorEnd.a}");
         
         wand.button.Then(() => wand.tipViewVelocity.z > wand.module.gestureVelocityLarge
                                && !wand.localTipVelocity.MostlyZ(), "Slash Sideways")
@@ -44,7 +51,7 @@ public class Basic : WandModule {
             wand.item.Haptic(1);
             if (target.creature is Creature creature) {
                 if (!creature.isKilled) {
-                    creature.Damage(new CollisionInstance(new DamageStruct(DamageType.Energy, 10) {
+                    creature.Damage(new CollisionInstance(new DamageStruct(DamageType.Energy, damage) {
                         hitRagdollPart = creature.ragdoll.rootPart,
                         pushLevel = 1
                     }) {
@@ -55,14 +62,22 @@ public class Basic : WandModule {
                     });
                 }
 
-                if (target.grabbed) {
+                if (target.Has<Floating>()) {
                     target.Rigidbody().AddForce(toTarget.normalized * 60f, ForceMode.VelocityChange);
                     target.Rigidbody().AddTorque(Vector3.Cross(toTarget.normalized, Vector3.up) * 80f, ForceMode.VelocityChange);
                 } else if (creature.ragdoll.state is Ragdoll.State.Destabilized or Ragdoll.State.Inert) {
                     target.Rigidbody().AddForce(toTarget.normalized * 8f, ForceMode.VelocityChange);
                 }
             } else {
-                target.Rigidbody().AddForce(toTarget.normalized * 3f, ForceMode.VelocityChange);
+                if (target.item.GetComponent<Breakable>() is Breakable breakable) {
+                    breakable.Break();
+                }
+                if (target.Has<Floating>()) {
+                    target.Rigidbody().AddForce(toTarget.normalized * 10f, ForceMode.VelocityChange);
+                    target.Rigidbody().AddTorque(Vector3.Cross(toTarget.normalized, Vector3.up) * 20f, ForceMode.VelocityChange);
+                } else {
+                    target.Rigidbody().AddForce(toTarget.normalized * 3f, ForceMode.VelocityChange);
+                }
             }
         }, 0.2f);
     }

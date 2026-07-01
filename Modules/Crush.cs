@@ -1,6 +1,6 @@
-﻿using System.Net.Security;
-using ExtensionMethods;
+﻿using ExtensionMethods;
 using GestureEngine;
+using ThunderRoad;
 
 namespace Wand; 
 
@@ -17,7 +17,8 @@ public class Crush : WandModule {
 
     public void CrushEnemy() {
         MarkCasted();
-        wand.target.creature?.ragdoll.SliceAll(throwForce);
-        wand.target.creature?.Kill();
+        if (wand.target.creature == null) return;
+        wand.target.creature.ragdoll.SliceAll(throwForce);
+        wand.target.creature.Kill();
     }
 }

@@ -22,18 +22,21 @@ public class Flipendo : WandModule {
             wand.Reset();
             return;
         }
-        
+
         MarkCasted();
-            
+
         wand.PlaySound(SoundType.Foll, entity.Transform);
 
         var direction = (entity.Center() - wand.tip.position).normalized + Vector3.up * 0.5f;
+        // float floatMult = entity.Has<Floating>() ? 1.5f : 1;
+        entity.Inflict<Floating>(this, 3f);
         if (entity.creature is Creature creature) {
             creature.TryPush(Creature.PushType.Magic, direction * creatureForce, 4);
-            creature.ragdoll.SetState(Ragdoll.State.Destabilized);
+            if (!creature.isKilled)
+                creature.ragdoll.SetState(Ragdoll.State.Destabilized);
             creature.AddForce(direction * creatureForce, ForceMode.VelocityChange);
         } else if (entity.item is Item otherItem) {
-            otherItem.rb.AddForce(direction * itemForce, ForceMode.VelocityChange);
+            otherItem.physicBody.AddForce(direction * itemForce, ForceMode.VelocityChange);
         }
 
         wand.module.shoveEffectData.Spawn(entity.transform).Play();

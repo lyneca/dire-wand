@@ -11,9 +11,8 @@ namespace Wand;
 public class Gather : WandModule {
     public override void OnInit() {
         base.OnInit();
-        wand.trigger.Then(Gesture.Both
-                // .Palm(Direction.Together)
-                .Moving(Direction.Together))
+        wand.trigger
+            .Then(Gesture.Both.Moving(Direction.Together))
             .Do(Collect);
     }
 
@@ -23,7 +22,7 @@ public class Gather : WandModule {
     }
 
     private IEnumerator CollectRoutine() {
-        var collectPoint = wand.tipRay.GetPoint(5);
+        var collectPoint = wand.tip.position + Vector3.Slerp(wand.tipRay.direction, Player.local.head.transform.forward, 0.5f).normalized * 5;
 
         int index = 0;
         List<Entity> entities = new();
@@ -31,16 +30,15 @@ public class Gather : WandModule {
             if (index > 7) break;
             if (item.Free()) {
                 entities.Add(item.gameObject.GetOrAddComponent<Entity>());
+                index++;
             }
-
-            index++;
         }
 
         Dictionary<Entity, (Vector3 offset, Vector3 axis)> offsets = new();
 
         for (var i = 0; i < entities.Count; i++) {
             var entity = entities[i];
-            entity.Grab();
+            entity.Inflict<Physical>(this);
 
             entity.Rigidbody().AddForce(
                 (Vector3.up + (wand.tip.position - entity.WorldCenter).normalized * 0.3f)
@@ -71,7 +69,7 @@ public class Gather : WandModule {
         }
 
         for (var i = 0; i < entities.Count; i++) {
-            entities[i].Release();
+            entities[i].Remove<Physical>(this);
         }
 
         yield return 0;

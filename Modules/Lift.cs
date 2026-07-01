@@ -49,7 +49,7 @@ public class Lift : WandModule {
             && (wand.otherHand.grip.position - wand.tip.position).sqrMagnitude < 0.15f * 0.15f) {
             for (var i = 0; i < item.colliderGroups.Count; i++) {
                 targetItem.colliderGroups[i].imbue
-                    .Transfer(spell, spell.imbueRate * spell.currentCharge * Time.deltaTime);
+                    ?.Transfer(spell, spell.imbueRate * spell.currentCharge * Time.deltaTime);
             }
         }
 
@@ -74,23 +74,39 @@ public class Lift : WandModule {
         
         MarkCasted();
 
-        var line = Catalog.GetData<EffectData>("WandLineLoop").Spawn(wand.tip);
-        line.SetSource(wand.tip);
-        line.SetTarget(wand.target.Transform);
-        line.SetMainGradient(wand.module.targetArgs.gradient);
-        line.Play();
+        // var line = Catalog.GetData<EffectData>("WandLineLoop").Spawn(wand.tip);
+        // line.SetSource(wand.tip);
+        // line.SetTarget(wand.target.Transform);
+        // line.SetMainGradient(wand.module.targetArgs.gradient);
+        // line.Play();
             
         wand.PlaySound(SoundType.Legh, wand.target.Transform);
             
         wand.target.item?.gameObject.GetComponent<FreezeModifier>()?.Clear();
 
+        wand.target.Clear<Floating>();
+        wand.target.Inflict<Physical>(this);
+        wand.target.Inflict<ZeroGravity>(this);
+        wand.OnReset(() => {
+            wand.target.DropBreakables(wand, true);
+            wand.target.Remove<Physical>(this);
+            wand.target.Remove<ZeroGravity>(this);
+        });
+        wand.UntilReset(() => wand.item.Haptic(wand.target?.Rigidbody().velocity.magnitude.RemapClamp(0, 20f, 0, 0.5f) ?? 0));
+        if (wand.target.creature is { isKilled: false })
+            wand.target.creature?.ragdoll.SetState(Ragdoll.State.Destabilized);
+
+        /*
+         
         wand.target.Release();
         wand.target.Grab(true,
-            obj => wand.item.Haptic(obj.Rigidbody().velocity.magnitude.RemapClamp(0, 20f, 0, 0.5f)),
+            ,
             _ => line.Despawn());
+        */
 
         float modifier = Mathf.Sqrt(wand.target.Rigidbody().mass);
         jointPoint.transform.position = wand.target.Center();
+        wand.target.PickupBreakables();
         joint = Utils.CreateSimpleJoint(jointPoint, wand.target.Rigidbody(), 1000 * modifier, 150 * modifier,
             100000f * modifier,
             targetRotation: wand.target.item?.flyDirRef?.transform.rotation
