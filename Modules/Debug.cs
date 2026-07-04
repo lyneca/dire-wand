@@ -3,7 +3,7 @@ using ThunderRoad;
 
 namespace Wand; 
 
-public class DebugToggle : WandModule {
+public class DebugToggle : WandSkill {
     public override void OnInit() {
         base.OnInit();
         wand.button.Then(() => wand.item.isGripped && wand.Triggering)

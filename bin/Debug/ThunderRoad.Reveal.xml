@@ -1,0 +1,51 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>ThunderRoad.Reveal</name>
+    </assembly>
+    <members>
+        <member name="M:ThunderRoad.Reveal.RevealMaskProjection.ProjectAsync(UnityEngine.Vector3,UnityEngine.Vector3,UnityEngine.Vector3,System.Single,System.Single,UnityEngine.Texture,UnityEngine.Vector4,System.Collections.Generic.List{ThunderRoad.Reveal.RevealMaterialController},ThunderRoad.Reveal.RevealData[],ThunderRoad.Reveal.RevealMaskProjection.OnCompleted)">
+            <summary>
+            Project the reveal texture onto the target renderers.
+            </summary>
+            <param name="origin">World space origin of the view to project from.</param>
+            <param name="direction">World space look direction of the view to project from.</param>
+            <param name="up">World space upward vector of the view to project from.</param>
+            <param name="depth">Depth from the view in world space units to cutoff from projecting on to.</param>
+            <param name="size">Size of the orthographics view matrix.</param>
+            <param name="revealTexture">The texture used to project into the render texture mask on the target renderers.</param>
+            <param name="channelMultiplier"></param>
+            <param name="revealMaterialControllers">The RevealMaterialControllers to attempt to project on to. They need to have renderers attached.</param>
+            <param name="revealData">RevealData structs containing data for how to project the reveal texture.</param>
+            <param name="callback">Callback invoked when projection is complete</param>
+        </member>
+        <member name="M:ThunderRoad.Reveal.RevealMaskProjection.Project(UnityEngine.Matrix4x4,UnityEngine.Matrix4x4,UnityEngine.Texture,UnityEngine.Vector4,System.Single,System.Collections.Generic.List{ThunderRoad.Reveal.RevealMaterialController},ThunderRoad.Reveal.RevealData[],ThunderRoad.Reveal.RevealMaskProjection.OnCompleted)">
+            <summary>
+            Project the reveal texture onto the target renderers.
+            </summary>
+            <param name="view">View matrix to project with.</param>
+            <param name="proj">Projection matrix.</param>
+            <param name="revealTexture">The texture used to project into the render texture mask on the target renderers.</param>
+            /// <param name="channelMultiplier"></param>
+            <param name="depth">Depth from the view in world space units to cutoff from projecting on to.</param>
+            <param name="revealMaterialControllers">The RevealMaterialControllers you are projecting onto.</param>
+            <param name="revealData">RevealData structs containing data for how to project the reveal texture.</param>
+            <param name="callback">Callback invoked when projection is complete</param>
+        </member>
+        <member name="F:ThunderRoad.Reveal.RevealMaterialController.width">
+            public bool preserveRenderQueue = false;
+        </member>
+        <member name="M:ThunderRoad.Reveal.RevealMaterialController.Reset">
+            <summary>
+            Reset should get called by the parent item/creature when they are despawning
+            So it turns off reveal and resets it completely, releasing the texture and disabling reveal.
+            </summary>
+        </member>
+        <member name="M:ThunderRoad.Reveal.RevealMaterialController.ActivateRevealMaterials">
+            <summary>
+            Activates the reveal materials by creating the necessary render textures and instantiating the reveal materials to be set on sharedMaterials.
+            </summary>
+            <returns></returns>
+        </member>
+    </members>
+</doc>

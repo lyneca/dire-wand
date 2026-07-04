@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Wand; 
 
-public class Repair : WandModule {
+public class Repair : WandSkill {
 }
 
 public class BreakableTracker : ThunderBehaviour {

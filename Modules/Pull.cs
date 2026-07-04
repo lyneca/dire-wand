@@ -5,15 +5,17 @@ using UnityEngine;
 
 namespace Wand; 
 
-public class Pull : WandModule {
+public class Pull : WandSkill {
     public float creatureForce = 15f;
     public float itemForce = 10f;
     public override void OnInit() {
         base.OnInit();
-        wand.OnTargetEntity(step => step.Then(wand.Offhand.Palm(Direction.Down).Gripping.Moving(Direction.Backward)).Do(() => PullEntity(wand.target)));
+        wand.OnTargetEntity(step => step
+            .ThenRepeatable(wand.Flick(wand.InwardsDirection, wand.module.gestureVelocityLarge))
+            .Do(() => PullEntity(wand.target)));
     }
 
-    public void PullEntity(Entity entity) {
+    public void PullEntity(ThunderEntity entity) {
         if (entity == null) {
             wand.Reset();
             return;
@@ -21,17 +23,23 @@ public class Pull : WandModule {
 
         MarkCasted();
 
-        wand.PlaySound(SoundType.Foll, entity.Transform);
+        wand.PlaySound(SoundType.Foll, entity.RootTransform);
 
-        float floatMult = entity.Has<Floating>() ? 1.5f : 1;
-        var direction = (wand.tip.position - entity.Center()).normalized + Vector3.up * 0.5f;
-        if (entity.creature is Creature creature) {
-            creature.TryPush(Creature.PushType.Magic, direction * creatureForce, 4);
-            if (!creature.isKilled)
-                creature.ragdoll.SetState(Ragdoll.State.Destabilized);
-            creature.AddForce(direction * (creatureForce * floatMult), ForceMode.VelocityChange);
-        } else if (entity.item is Item otherItem) {
-            otherItem.physicBody.AddForce(direction * (itemForce * floatMult), ForceMode.VelocityChange);
+        float floatMult = entity.RootPhysicBody.useGravity ? 1f : 1.5f;
+        var direction = (wand.tip.position - entity.Center).normalized + Vector3.up * 0.5f;
+        switch (entity)
+        {
+            case Creature creature:
+            {
+                creature.TryPush(Creature.PushType.Magic, direction * creatureForce, 4);
+                if (!creature.isKilled)
+                    creature.ragdoll.SetState(Ragdoll.State.Destabilized);
+                creature.AddForce(direction * (creatureForce * floatMult), ForceMode.VelocityChange);
+                break;
+            }
+            case Item otherItem:
+                otherItem.physicBody.AddForce(direction * (itemForce * floatMult), ForceMode.VelocityChange);
+                break;
         }
 
         wand.module.shoveEffectData.Spawn(entity.transform).Play();

@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace Wand; 
 
-public class Lumos : WandModule {
+public class Lumos : WandSkill {
     protected Transform lightParent;
     protected MeshRenderer lightRenderer;
     protected Light light;

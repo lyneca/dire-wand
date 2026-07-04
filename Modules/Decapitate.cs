@@ -9,34 +9,34 @@ using UnityEngine;
 
 namespace Wand; 
 
-public class Decapitate : WandModule {
+public class Decapitate : WandSkill {
     public override void OnInit() {
         base.OnInit();
 
-        wand.targetedEnemy
+        wand.profane
             .Then(wand.Flick(AxisDirection.Left, wand.module.gestureVelocityLarge * 1.5f),
                 wand.Flick(AxisDirection.Right, wand.module.gestureVelocityLarge * 1.5f))
             .Do(SliceEntity, "Slice Entity");
-        wand.targetedEnemy
+        wand.profane
             .Then(wand.Flick(AxisDirection.Right, wand.module.gestureVelocityLarge * 1.5f), wand
                 .Flick(AxisDirection.Left, wand.module.gestureVelocityLarge * 1.5f))
             .Do(SliceEntity, "Slice Entity");
     }
 
     public void SliceEntity() {
-        if (wand.target?.creature == null) {
+        if (wand.target is not Creature creature) {
             wand.Reset();
             return;
         }
         
         MarkCasted();
 
-        wand.target.creature.ragdoll.GetPart(RagdollPart.Type.Neck).TrySlice();
+        creature.ragdoll.GetPart(RagdollPart.Type.Neck).TrySlice();
         wand.RunAfter(
             () => {
-                wand.target.creature.ragdoll.headPart.physicBody.AddForce(Vector3.up * 5f, ForceMode.VelocityChange);
+                creature.ragdoll.headPart.physicBody.AddForce(Vector3.up * 5f, ForceMode.VelocityChange);
             }, 0.1f);
-        wand.target.creature.Kill();
+        creature.Kill();
         wand.canRestart = true;
     }
 

@@ -81,7 +81,7 @@ public class Step {
         public bool Evaluate() {
             if (!hasStarted && start()) {
                 hasStarted = true;
-                startTime = Time.time;
+                startTime = Time.unscaledTime;
             }
 
             // Has not hit leading edge
@@ -90,7 +90,7 @@ public class Step {
             // No duration, return end condition
             if (duration == 0) return end?.Invoke() ?? true;
 
-            float sinceStart = Time.time - startTime;
+            float sinceStart = Time.unscaledTime - startTime;
 
             bool hasEnded = end?.Invoke() ?? true;
 
@@ -212,9 +212,14 @@ public class Step {
     /// One or more NamedConditionSets, a list of NamedConditions.
     /// </param>
     /// <returns></returns>
+    public Step ThenRepeatable(float delay, params NamedConditionSet[] conditions) {
+        if (conditions.Length == 0) return this;
+        var next = ThenRepeatable(conditions[0].Item1, delay, conditions[0].Item2);
+        return conditions.Length > 1 ? next.Then(conditions.Skip(1).ToArray()) : next;
+    }
     public Step ThenRepeatable(params NamedConditionSet[] conditions) {
         if (conditions.Length == 0) return this;
-        var next = ThenRepeatable(conditions[0].Item1, conditions[0].Item2);
+        var next = ThenRepeatable(conditions[0].Item1, 0.3f, conditions[0].Item2);
         return conditions.Length > 1 ? next.Then(conditions.Skip(1).ToArray()) : next;
     }
 
@@ -236,9 +241,9 @@ public class Step {
     /// </summary>
     /// <param name="name">Human-readable name of the step</param>
     /// <param name="conditions">Set of conditions</param>
-    public Step ThenRepeatable(string name = "", params Func<bool>[] conditions) {
+    public Step ThenRepeatable(string name = "", float delay = 0.3f, params Func<bool>[] conditions) {
         var list = new Queue<Func<bool>>(conditions);
-        var next = Then(list.Dequeue(), name).Repeatable();
+        var next = Then(list.Dequeue(), name).Repeatable(true, delay);
 
         while (list.Any()) {
             next = next.Then(list.Dequeue());
@@ -300,11 +305,11 @@ public class Step {
     protected bool Check() { return condition.Evaluate(); }
 
     protected void DoUpdate() {
-        if (skipTo?.repeatable == true && Time.time - lastChangedToTime > skipTo.repeatDelay && AtEnd() && !skipTo.Check()) {
+        if (skipTo?.repeatable == true && Time.unscaledTime - lastChangedToTime > skipTo.repeatDelay && AtEnd() && !skipTo.Check()) {
             skipTo.Reset();
             skipTo = null;
         }
-        if (skipTo == null && (parent == null || Time.time - parent.lastChangedToTime > delay)) {
+        if (skipTo == null && (parent == null || Time.unscaledTime - parent.lastChangedToTime > delay)) {
             for (var index = 0; index < children.Count; index++) {
                 var child = children[index];
                 if (child.Check()) {
@@ -313,7 +318,7 @@ public class Step {
                         onStateChange?.Invoke();
                     skipTo = child;
                     child.condition.Reset();
-                    lastChangedToTime = Time.time;
+                    lastChangedToTime = Time.unscaledTime;
                     break;
                 }
             }

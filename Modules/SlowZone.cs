@@ -11,7 +11,7 @@ using Object = UnityEngine.Object;
 
 namespace Wand; 
 
-public class SlowZone : WandModule {
+public class SlowZone : WandSkill {
     public string bubbleEffectId = "WandBubble";
     private EffectData bubbleEffectData;
     public string bubbleEnterEffectId = "WandBubbleEnter";
@@ -21,10 +21,10 @@ public class SlowZone : WandModule {
     private HashSet<Creature> creatures;
     private HashSet<Rigidbody> rigidbodies;
 
-    public override WandModule Clone() {
+    public override CatalogData Clone() {
         var clone = base.Clone() as SlowZone;
-        clone.creatures = new HashSet<Creature>();
-        clone.rigidbodies = new HashSet<Rigidbody>();
+        clone!.creatures = [];
+        clone.rigidbodies = [];
         return clone;
     }
 
@@ -61,7 +61,7 @@ public class SlowZone : WandModule {
                 () => Vector3.Distance(Player.local.head.transform.position, collision.contactPoint)
                       < currentRadius,
                 () => {
-                    bubbleEnterEffectData.Spawn(item.transform).Play();
+                    bubbleEnterEffectData.Spawn(wandItem.transform).Play();
                     SnapshotTool.DoSnapshotTransition(ThunderRoadSettings.audioMixerSnapshotUnderwater, 0);
                 },
                 () => SnapshotTool.DoSnapshotTransition(ThunderRoadSettings.audioMixerSnapshotDefault, 0));
@@ -119,7 +119,7 @@ public class SlowZone : WandModule {
 
         foreach (var creature in creatures) {
             if (creature == null) continue;
-            creature.Remove<Slowed>(this);
+            creature.Remove("Slowed", this);
         }
 
         Object.Destroy(trigger.gameObject);
@@ -160,7 +160,7 @@ public class SlowZone : WandModule {
             }
 
             if (hitCreature != null) {
-                hitCreature.Inflict<Slowed>(this);
+                hitCreature.Inflict("Slowed", this);
                 creatures.Add(hitCreature);
             }
 
@@ -169,7 +169,7 @@ public class SlowZone : WandModule {
             if (!rigidbodies.Contains(rb)) return;
             rigidbodies.Remove(rb);
             if (rb.GetComponent<Creature>() is Creature creature) {
-                creature.Remove<Slowed>(this);
+                creature.Remove("Slowed", this);
                 creatures.Remove(creature);
             }
 

@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Wand; 
 
-public class Gemini : WandModule {
+public class Gemini : WandSkill {
     public override void OnInit() {
         base.OnInit();
         wand.targetedItem
@@ -12,7 +12,7 @@ public class Gemini : WandModule {
     }
 
     public void CloneItem() {
-        if (wand.target.handler.item is not Item item) {
+        if (wand.target is not Item item) {
             wand.Reset();
             return;
         }

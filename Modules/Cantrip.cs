@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace Wand; 
 
-public class Cantrip : WandModule {
+public class Cantrip : WandSkill {
     public override void OnInit() {
         wand.targetedItem
             .Then(() => wand.Buttoning, "Tap button")
@@ -15,13 +15,16 @@ public class Cantrip : WandModule {
             .Do(UnBoop, "Un-boop");
     }
 
-    public void Boop() {
-        Boop(wand.target.item, wand);
+    public void Boop()
+    {
+        if (wand.target is not Item item) return;
+        Boop(item, wand);
         MarkCasted();
     }
 
     public void UnBoop() {
-        UnBoop(wand.target.item, wand);
+        if (wand.target is Item item)
+            UnBoop(item, wand);
     }
     
     public static void Boop(Item targetItem, WandBehaviour wand) {
@@ -80,8 +83,8 @@ public class Cantrip : WandModule {
 
     public override void OnReset() {
         base.OnReset();
-        if (wand.target?.item)
-            wand.target?.item?.handlers.RemoveAll(handler => handler.grabbedHandle.item != wand.target.item);
+        if (wand.target is Item item)
+            item.handlers.RemoveAll(handler => handler.grabbedHandle.item != wand.target);
     }
 
     public static void UnBoop(Item targetItem, WandBehaviour wand) {

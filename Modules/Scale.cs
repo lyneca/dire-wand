@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace Wand; 
 
-public class Scale : WandModule {
+public class Scale : WandSkill {
     public override void OnInit() {
         base.OnInit();
         var shrink = Gesture.Both
@@ -24,11 +24,13 @@ public class Scale : WandModule {
 
     protected void ScaleEntity(float scale) {
         MarkCasted();
-        ScaleHelper scaleHelper =
-            wand.target.isCreature
-                ? wand.target.creature.gameObject.GetOrAddComponent<CreatureScaleHelper>()
-                : wand.target.item.gameObject.GetOrAddComponent<ItemScaleHelper>();
-        wand.target.Rigidbody().AddForce(Vector3.up * 3, ForceMode.VelocityChange);
+        ScaleHelper scaleHelper = wand.target switch
+        {
+            Creature creature => creature.gameObject.GetOrAddComponent<CreatureScaleHelper>(),
+            Item item => item.gameObject.GetOrAddComponent<ItemScaleHelper>()
+        };
+                
+        wand.target.AddForce(Vector3.up * 3, ForceMode.VelocityChange);
         scaleHelper.StartCoroutine(Utils.LoopOver(
             time => scaleHelper.Scale(Mathf.Lerp(1, scale, time.Curve(0, 0.6f, 0.5f, 1))),
             0.4f,

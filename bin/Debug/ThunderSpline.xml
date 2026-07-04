@@ -1,0 +1,76 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>ThunderSpline</name>
+    </assembly>
+    <members>
+        <member name="P:ThunderRoad.Splines.ThunderSpline.Splines">
+            <summary>
+            The list of all splines attached to that container.
+            </summary>
+        </member>
+        <member name="P:ThunderRoad.Splines.ThunderSpline.KnotLinkCollection">
+            <summary>
+            A collection of all linked knots. Linked knots can be on different splines. However, knots can
+            only link to other knots within the same container. This collection is used to maintain
+            the validity of the links when operations such as knot insertions or removals are performed on the splines.
+            </summary>
+        </member>
+        <member name="M:ThunderRoad.Splines.ThunderSpline.GetSplinePointInfo(System.Single,UnityEngine.Vector3@,UnityEngine.Vector3@,UnityEngine.Vector3@,UnityEngine.Vector3@)">
+            <summary>
+            Gets the world-space position and world-oriented directions for the spline point nearest to the input position
+            </summary>
+            <param name="t">The normalized length along the spline</param>
+            <param name="position">The world-space position on the spline</param>
+            <param name="forward">The world-oriented forward direction of the point on the spline, similar to transform.forward</param>
+            <param name="up">The world-oriented up direction of the point on the spline, similar to transform.up</param>
+            <param name="right">The world-oriented right direction of the point on the spline, similar to transform.right</param>
+        </member>
+        <member name="M:ThunderRoad.Splines.ThunderSpline.GetClosestSplinePoint(UnityEngine.Vector3,System.Single@,UnityEngine.Vector3@,UnityEngine.Vector3@,UnityEngine.Vector3@,UnityEngine.Vector3@)">
+            <summary>
+            Gets the world-space position and world-oriented directions for the spline point nearest to the input position
+            </summary>
+            <param name="from">The position to find the closest point from</param>
+            <param name="t">The normalized length along the spline. If an object is off the spline, this can be less than 0 or greater than 1</param>
+            <param name="position">The world-space position on the spline</param>
+            <param name="forward">The world-oriented forward direction of the point on the spline, similar to transform.forward</param>
+            <param name="up">The world-oriented up direction of the point on the spline, similar to transform.up</param>
+            <param name="right">The world-oriented right direction of the point on the spline, similar to transform.right</param>
+        </member>
+        <member name="M:ThunderRoad.Splines.ThunderSpline.SplinePointWithinDistance(UnityEngine.Vector3,System.Single,System.Single@,UnityEngine.Vector3@,UnityEngine.Vector3@,UnityEngine.Vector3@,UnityEngine.Vector3@)">
+            <summary>
+            Gets the world-space position and world-oriented directions for the spline point nearest to the input position
+            </summary>
+            <param name="from">The position to find the closest point from</param>
+            <param name="t">The normalized length along the spline</param>
+            <param name="position">The world-space position on the spline</param>
+            <param name="forward">The world-oriented forward direction of the point on the spline, similar to transform.forward</param>
+            <param name="up">The world-oriented up direction of the point on the spline, similar to transform.up</param>
+            <param name="right">The world-oriented right direction of the point on the spline, similar to transform.right</param>
+            <returns>True if the output spline position is within the specified distance from the input position</returns>
+        </member>
+        <member name="M:ThunderRoad.Splines.ThunderSpline.DistanceBetweenNormalizedPoints(System.Single,System.Single)">
+            <summary>
+            Get the distance along the spline between two points on the spline. Uses pre-calculated information, not fully accurate
+            </summary>
+            <param name="a">One endpoint along the spline, as a normalized distance from start to end (0 to 1)</param>
+            <param name="b">Another endpoint along the spline, as a normalized distance from start to end (0 to 1)</param>
+            <returns>The length in meters between the two points on the spline</returns>
+        </member>
+        <member name="M:ThunderRoad.Splines.ThunderSpline.GetSplineForceAtNormalizedPoint(System.Single)">
+            <summary>
+            Get the force along the spline at normalized position t
+            </summary>
+            <param name="t">The normalized position/time along the spline</param>
+            <returns>A Vector3 representing the force as defined towards the target position</returns>
+        </member>
+        <member name="M:ThunderRoad.Splines.ThunderSpline.GetSplineForceAtNormalizedPointWithForward(System.Single,UnityEngine.Vector3)">
+            <summary>
+            Get the force along the spline at normalized position t, using a pre-sampled world forward (To avoid excess evaluation of the spline)
+            </summary>
+            <param name="t">The normalized position/time along the spline</param>
+            <param name="worldForward">The world forward for the normalized position being sampled</param>
+            <returns></returns>
+        </member>
+    </members>
+</doc>

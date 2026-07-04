@@ -1,0 +1,159 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>ThunderRoad.Manikin</name>
+    </assembly>
+    <members>
+        <member name="T:ThunderRoad.Manikin.ManikinPart">
+            <summary>
+            Base component that is placed on part prefabs to be used in the Manikin System. Specialized versions are built on top of the base class.  For example, ManikinMeshPart, ManikinSmrPart, and ManikinLODSmrPart.
+            </summary>
+        </member>
+        <member name="T:ThunderRoad.Manikin.ManikinPart.PartBlendShape">
+            <summary>
+            Struct to hold blend shapes, and make them blend when specific wardrobes are already equipped.
+            </summary>
+        </member>
+        <member name="M:ThunderRoad.Manikin.ManikinPart.PartBlendShape.Update">
+            <summary>
+            Updates the "blendShapeIndex" blend shape, with the "blendShapeValue" on the skinned mesh renderers;
+            </summary>
+        </member>
+        <member name="M:ThunderRoad.Manikin.ManikinPart.PartBlendShape.Reset">
+            <summary>
+            Resets the "blendShapeIndex" blend shape, with the "blendShapeDefaultValue" on the skinned mesh renderers;
+            </summary>
+        </member>
+        <member name="M:ThunderRoad.Manikin.ManikinPart.Initialize">
+            <summary>
+            This is called when creating the part prefab in the editor.
+            </summary>
+        </member>
+        <member name="M:ThunderRoad.Manikin.ManikinPart.UpdateBlendShapes(ThunderRoad.Manikin.ManikinWardrobeData[])">
+            <summary>
+            Updates the part blends shapes values.
+            </summary>
+            <param name="equippedWardrobes">Current creature wardrobes</param>
+        </member>
+        <member name="M:ThunderRoad.Manikin.ManikinPart.IsBlendShapesContainingWardrobe(ThunderRoad.Manikin.ManikinWardrobeData)">
+            <summary>
+            Checks if the part blend shape struct is containing the given wardrobe as a dependency
+            </summary>
+            <param name="wardrobe">Wardroe to check for</param>
+            <returns>True and the concerned part blend shape if found. False and null otherwise</returns>
+        </member>
+        <member name="T:ThunderRoad.Manikin.ManikinRig">
+            <summary>
+            This is a core required component to allow the system to work.  This component stores a hash map of bone names to bone transforms so that each part that is instantiated it can efficiently hook up to the bone transforms it needs for it's own renderer. 
+            When the rootbone parameter is assigned the component will calculate bone name hashes for the entire skeleton and a dictionary of hashed names to transforms.
+            </summary>
+        </member>
+        <member name="M:ThunderRoad.Manikin.ManikinGroupPart.Initialize">
+            <summary>
+            This is called when creating the part prefab in the editor.
+            </summary>
+        </member>
+        <member name="M:ThunderRoad.Manikin.ManikinGroupPart.RemovePartsOfLOD(System.Int32)">
+            <summary>
+            Editor only function to remove LODs from a prefab.  Intended to be used from build scripts.
+            </summary>
+            <param name="lodLevel"></param>
+        </member>
+        <member name="T:ThunderRoad.Manikin.ManikinPropertyBoneScaleConverter">
+            <summary>
+            BoneScaleConverters should usually only be used in one place in the hierarchy, likely the root.
+            </summary>
+        </member>
+        <member name="T:ThunderRoad.Manikin.VertexBitmaskDataViewer">
+            <summary>
+            This editor only component can be used to view the vertices on an attached renderer.
+            It will highlight any vertices in red that have a corresponding bit set from the supplied bitmasks on this component.
+            It'll look for that bitmask data in the selected UV channel.
+            </summary>
+        </member>
+        <member name="T:ThunderRoad.Manikin.AssetReferenceManikinPart">
+            <summary>
+            Simple class to restrict AssetRefernces to requiring a specific component, ie. ManikinPart.
+            Surprisingly, this works will polymorphism.
+            </summary>
+        </member>
+        <member name="T:ThunderRoad.Manikin.ManikinProperty">
+            <summary>
+            Properties is a hierarchial system the stores a list of properties and propagates them down to children properties.
+            </summary>
+        </member>
+        <member name="M:ThunderRoad.Manikin.ManikinProperties.UpdatePropertyValues(System.Single[],ThunderRoad.Manikin.ManikinProperty.PropertyType,ThunderRoad.Manikin.ManikinPropertySet,System.Object)">
+            <summary>
+            Cascades property values down the hierarchy.
+            </summary>
+            <param name="values"></param>
+            <param name="propertyType"></param>
+            <param name="set"></param>
+            <param name="payload"></param>
+        </member>
+        <member name="M:ThunderRoad.Manikin.ManikinProperties.AddProperty(UnityEngine.Color,System.Boolean,ThunderRoad.Manikin.ManikinPropertySet,System.Boolean,System.Int32)">
+            <summary>
+            /// Adds a new Color ManikinProperty to the Properties array on this object.
+            </summary>
+            <param name="color"></param>
+            <param name="hdr"></param>
+            <param name="manikinPropertySet"></param>
+            <param name="apply"></param>
+            <param name="materialIndices"></param>
+        </member>
+        <member name="M:ThunderRoad.Manikin.ManikinProperties.AddProperty(System.Single[],ThunderRoad.Manikin.ManikinProperty.PropertyType,ThunderRoad.Manikin.ManikinPropertySet,System.Boolean,System.Int32)">
+            <summary>
+            Adds a new ManikinProperty to the Properties array on this object.
+            </summary>
+            <param name="values"></param>
+            <param name="propertyType"></param>
+            <param name="manikinPropertySet"></param>
+            <param name="apply"></param>
+            <param name="materialIndices"></param>
+        </member>
+        <member name="M:ThunderRoad.Manikin.ManikinProperties.TryUpdateProperty(System.Single[],ThunderRoad.Manikin.ManikinProperty.PropertyType,ThunderRoad.Manikin.ManikinPropertySet,System.Boolean,System.Int32)">
+            <summary>
+            Attempts to update a property with the matching ManikinPropertySet. Returns true if found and false if not found.
+            </summary>
+            <param name="values"></param>
+            <param name="propertyType"></param>
+            <param name="manikinPropertySet"></param>
+            <param name="apply"></param>
+            <param name="materialIndices"></param>
+            <returns></returns>
+        </member>
+        <member name="M:ThunderRoad.Manikin.ManikinProperties.TryUpdateProperty(UnityEngine.Color,System.Boolean,ThunderRoad.Manikin.ManikinPropertySet,System.Boolean,System.Int32)">
+            <summary>
+            Attempts to update a color property with the matching ManikinPropertySet. Returns true if found and false if not found.
+            </summary>
+            <param name="color"></param>
+            <param name="hdr"></param>
+            <param name="manikinPropertySet"></param>
+            <param name="apply"></param>
+            <param name="materialIndices"></param>
+            <returns></returns>
+        </member>
+        <member name="T:ThunderRoad.Manikin.ManikinPartList">
+            <summary>
+            The Part list stores a list of ManikinParts to be instantiated or destroyed. It can be used directly or as a base layer for other higher level components, for example a wardrobe system the uses higher level data to determine which parts to set.
+            </summary>
+        </member>
+        <member name="M:ThunderRoad.Manikin.ManikinPartList.AddNewParts(System.Collections.Generic.List{ThunderRoad.Manikin.ManikinPartList.PartEntry})">
+            <summary>
+            After this function runs, working parts will contains only the part entries that will be attempted to be added.
+            </summary>
+            <param name="workingParts"></param>
+        </member>
+        <member name="M:ThunderRoad.Manikin.ManikinPartList.CalculatePartsToRemove(System.Collections.Generic.List{ThunderRoad.Manikin.ManikinPartList.PartEntry},System.Collections.Generic.List{ThunderRoad.Manikin.ManikinPartList.PartEntry})">
+            <summary>
+            Removes parts that are no longer in the list.  Also, it pairs down the  list of new parts to be passed on to the addNewParts function.
+            </summary>
+            <param name="workingParts"></param>
+        </member>
+        <member name="M:ThunderRoad.Manikin.ManikinSmrPart.Initialize">
+            <summary>
+            This is called when creating the part prefab in the editor.
+            </summary>
+        </member>
+    </members>
+</doc>

@@ -4,29 +4,29 @@ using UnityEngine;
 
 namespace Wand; 
 
-public class Polymorph : WandModule {
+public class Polymorph : WandSkill {
     public override void OnInit() {
         base.OnInit();
 
-        wand.targetedEnemy
+        wand.profane
             .Then(wand.Swirl(SwirlDirection.Clockwise))
             .Do(PolymorphEntity, "Polymorph");
     }
 
     public void PolymorphEntity() {
-        if (wand.target?.creature == null) {
+        if (wand.target is not Creature creature) {
             wand.Reset();
             return;
         }
         MarkCasted();
             
-        wand.PlaySound(SoundType.Hagh, wand.target.Transform);
+        wand.PlaySound(SoundType.Hagh, wand.TargetTransform);
 
-        wand.target.creature.handLeft?.TryRelease();
-        wand.target.creature.handRight?.TryRelease();
-        var position = wand.target.creature.GetTorso().transform.position;
-        var rotation = Quaternion.LookRotation(wand.target.creature.GetHead().transform.forward);
-        wand.target.creature.Despawn();
+        creature.handLeft?.TryRelease();
+        creature.handRight?.TryRelease();
+        var position = creature.GetTorso().transform.position;
+        var rotation = Quaternion.LookRotation(creature.GetHead().transform.forward);
+        creature.Despawn();
         wand.module.polymorphEffectData.Spawn(position, rotation).Play();
         Catalog.GetData<CreatureData>("Chicken").SpawnAsync(position, 0);
     }

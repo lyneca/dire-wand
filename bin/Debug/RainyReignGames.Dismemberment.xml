@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>RainyReignGames.Dismemberment</name>
+    </assembly>
+    <members>
+        <member name="T:RainyReignGames.MeshDismemberment.Dismemberment.OnCreateSplitRenderer">
+            <summary>
+            Delegate for a custom create split renderer function. Minimum requirement is to create a new GameObject to return and have a skinned mesh renderer added.
+            </summary>
+            <param name="source"></param>
+            <returns></returns>
+        </member>
+    </members>
+</doc>

@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace Wand; 
 
-public class Protego : WandModule {
+public class Protego : WandSkill {
     public string shieldEffectId = "WandShield";
     private EffectData shieldEffectData;
     public override void OnInit() {

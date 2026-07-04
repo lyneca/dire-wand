@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace Wand;
 
-public class Firebreathing : WandModule {
+public class Firebreathing : WandSkill {
     public float dps = 30;
     public static EffectData revealFire;
     private Dictionary<Creature, RaycastHit> hits;

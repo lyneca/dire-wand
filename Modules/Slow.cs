@@ -4,7 +4,7 @@ using ThunderRoad;
 
 namespace Wand; 
 
-public class Slow : WandModule {
+public class Slow : WandSkill {
     public override void OnInit() {
         base.OnInit();
 
@@ -16,7 +16,7 @@ public class Slow : WandModule {
 
     public void SlowEntity() {
         MarkCasted();
-        Catalog.GetData<EffectData>("WandSlow")?.Spawn(wand.target.Transform).Play();
-        wand.target?.Inflict<Slowed>(this, 10);
+        Catalog.GetData<EffectData>("WandSlow")?.Spawn(wand.TargetTransform).Play();
+        wand.target?.Inflict("Slowed", this, 10);
     }
 }

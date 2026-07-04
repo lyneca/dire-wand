@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace Wand; 
 
-public class Spongify : WandModule {
+public class Spongify : WandSkill {
     public string bounceEffectId = "WandThrum";
     public EffectData bounceEffectData;
 
@@ -21,8 +21,8 @@ public class Spongify : WandModule {
 
     public void SpongifyItem() {
         MarkCasted();
-        wand.target?.item?.gameObject.GetComponent<FreezeModifier>()?.Clear();
-        wand.target?.item?.gameObject.GetOrAddComponent<BounceBehaviour>().Activate(this);
+        (wand.target as Item)?.gameObject.GetComponent<FreezeModifier>()?.Clear();
+        (wand.target as Item)?.gameObject.GetOrAddComponent<BounceBehaviour>().Activate(this);
     }
 }
 

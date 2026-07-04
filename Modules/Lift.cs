@@ -7,7 +7,7 @@ using Object = UnityEngine.Object;
 
 namespace Wand; 
 
-public class Lift : WandModule {
+public class Lift : WandSkill {
     protected Rigidbody jointPoint;
     protected Joint joint;
     public string liftEffectId = "WandLift";
@@ -16,17 +16,9 @@ public class Lift : WandModule {
     public override void OnInit() {
         base.OnInit();
         liftEffectData = Catalog.GetData<EffectData>(liftEffectId);
-        wand.targetedItem
-            .Then(wand.Flick(AxisDirection.Up, wand.module.gestureVelocityNormal))
-            .Do(LiftEntity, "Lift Item")
+        wand.OnTargetEntity(step => step
             .Then("Tap button", () => wand.Buttoning)
-            .Repeatable()
-            .Do(() => Cantrip.Boop(wand.target.item, wand), "Boop")
-            .Then("Release button", () => !wand.Buttoning)
-            .Do(() => Cantrip.UnBoop(wand.target.item, wand), "Un-boop");
-        wand.targetedEnemy
-            .Then(wand.Flick(AxisDirection.Up, wand.module.gestureVelocityLarge))
-            .Do(LiftEntity, "Lift Creature");
+            .Do(LiftEntity, "Lift Entity"));
         jointPoint = new GameObject().AddComponent<Rigidbody>();
         jointPoint.useGravity = false;
         jointPoint.isKinematic = true;
@@ -43,21 +35,21 @@ public class Lift : WandModule {
             wand.tip.transform.rotation * Quaternion.AngleAxis(180, Vector3.forward),
             Time.deltaTime * 5);
 
-        if (wand.target?.item is Item targetItem
+        if (wand.target is Item targetItem
             && wand.otherHand.Casting()
             && wand.otherHand.caster?.spellInstance is SpellCastCharge { imbueEnabled: true } spell
             && (wand.otherHand.grip.position - wand.tip.position).sqrMagnitude < 0.15f * 0.15f) {
-            for (var i = 0; i < item.colliderGroups.Count; i++) {
+            for (var i = 0; i < wandItem.colliderGroups.Count; i++) {
                 targetItem.colliderGroups[i].imbue
                     ?.Transfer(spell, spell.imbueRate * spell.currentCharge * Time.deltaTime);
             }
         }
 
-        if (joint) {
-            if (wand.target?.handler?.item?.isFlying == false)
-                wand.target.handler.item.Throw(1, Item.FlyDetection.Forced);
-            wand.target?.handler?.item?.SetColliderLayer(GameManager.GetLayer(LayerName.MovingItem));
-        }
+        if (!joint) return;
+        if (wand.target is not Item item) return;
+        if (!item.isFlying)
+            item.Throw(1, Item.FlyDetection.Forced);
+        item.SetColliderLayer(GameManager.GetLayer(LayerName.MovingItem));
     }
 
     public override void OnReset() {
@@ -80,21 +72,19 @@ public class Lift : WandModule {
         // line.SetMainGradient(wand.module.targetArgs.gradient);
         // line.Play();
             
-        wand.PlaySound(SoundType.Legh, wand.target.Transform);
+        wand.PlaySound(SoundType.Legh, wand.TargetTransform);
             
-        wand.target.item?.gameObject.GetComponent<FreezeModifier>()?.Clear();
+        wand.target.gameObject.GetComponent<FreezeModifier>()?.Clear();
 
-        wand.target.Clear<Floating>();
-        wand.target.Inflict<Physical>(this);
-        wand.target.Inflict<ZeroGravity>(this);
+        wand.target.ClearByType<Floating>();
+        wand.target.Inflict("WandFloating", this);
         wand.OnReset(() => {
-            wand.target.DropBreakables(wand, true);
-            wand.target.Remove<Physical>(this);
-            wand.target.Remove<ZeroGravity>(this);
+            // wand.target.DropBreakables(wand, true);
+            wand.target.Remove("WandFloating", this);
         });
-        wand.UntilReset(() => wand.item.Haptic(wand.target?.Rigidbody().velocity.magnitude.RemapClamp(0, 20f, 0, 0.5f) ?? 0));
-        if (wand.target.creature is { isKilled: false })
-            wand.target.creature?.ragdoll.SetState(Ragdoll.State.Destabilized);
+        wand.UntilReset(() => wand.item.Haptic(wand.target.RootPhysicBody.velocity.magnitude.RemapClamp(0, 20f, 0, 0.5f)));
+        if (wand.target is Creature { isKilled: false } creature)
+            creature.ragdoll.SetState(Ragdoll.State.Destabilized);
 
         /*
          
@@ -104,16 +94,20 @@ public class Lift : WandModule {
             _ => line.Despawn());
         */
 
-        float modifier = Mathf.Sqrt(wand.target.Rigidbody().mass);
-        jointPoint.transform.position = wand.target.Center();
-        wand.target.PickupBreakables();
-        joint = Utils.CreateSimpleJoint(jointPoint, wand.target.Rigidbody(), 1000 * modifier, 150 * modifier,
+        float modifier = Mathf.Sqrt(wand.target.RootPhysicBody.mass);
+        jointPoint.transform.position = wand.target.Center;
+        // wand.target.PickupBreakables();
+        joint = Utils.CreateSimpleJoint(jointPoint, wand.target.RootPhysicBody.rigidBody, 1000 * modifier,
+            150 * modifier,
             100000f * modifier,
-            targetRotation: wand.target.item?.flyDirRef?.transform.rotation
-                            ?? wand.target.item?.colliderGroups.FirstOrDefault()?.imbueShoot?.transform.rotation
-                            ?? wand.target.Rigidbody().transform.rotation);
-        joint.connectedAnchor = wand.target.Rigidbody().centerOfMass;
-        wand.target.throwOnRelease = true;
-        liftEffectData.Spawn(wand.target.Transform).Play();
+            targetRotation: wand.target switch
+            {
+                Item item => item.flyDirRef?.transform.rotation
+                             ?? item.colliderGroups.FirstOrDefault()?.imbueShoot?.transform.rotation,
+                _ => wand.target.RootPhysicBody.transform.rotation
+            });
+        joint.connectedAnchor = wand.target.RootPhysicBody.centerOfMass;
+        wand.throwTarget = true;
+        liftEffectData.Spawn(wand.TargetTransform).Play();
     }
 }

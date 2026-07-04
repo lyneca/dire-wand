@@ -6,7 +6,7 @@ using GestureEngine;
 
 namespace Wand; 
 
-public class Imperio : WandModule {
+public class Imperio : WandSkill {
     public Step imperio;
 
     public override void OnInit() {
@@ -25,19 +25,19 @@ public class Imperio : WandModule {
     }
 
     public void ControlEntity() {
-        if (wand.target?.creature == null) {
+        if (wand.target is not Creature creature) {
             wand.Reset();
             return;
         }
         MarkCasted();
 
-        wand.target.creature.brain.isManuallyControlled = false;
+        creature.brain.isManuallyControlled = false;
 
         wand.swirlAngle = 0;
     }
 
     public void AttackOrder() {
-        if (wand.target?.creature == null) {
+        if (wand.target is not Creature controlCreature) {
             wand.Reset();
             return;
         }
@@ -46,7 +46,7 @@ public class Imperio : WandModule {
         var creature = Utils.TargetCreature(wand.tipRay, 15, 40, null, false);
         if (creature == null) return;
         wand.PlaySound(SoundType.Hagh, creature.transform);
-        wand.target.creature.SetFaction(2);
+        controlCreature.SetFaction(2);
         var line = wand.module.targetLineEffectData.Spawn(wand.transform);
         line.SetSource(wand.tip);
         line.SetTarget(creature.GetTorso().transform);
@@ -54,34 +54,34 @@ public class Imperio : WandModule {
 
         line.Play();
         wand.module.castEffectData.Spawn(wand.tip).Play();
-        wand.module.targetEffectData.Spawn(wand.target.Transform).Play();
-        wand.target.creature.brain.currentTarget = creature;
+        wand.module.targetEffectData.Spawn(wand.TargetTransform).Play();
+        controlCreature.brain.currentTarget = creature;
     }
 
     public void PacifyOrder() {
-        if (wand.target?.creature == null) {
+        if (wand.target is not Creature creature) {
             wand.Reset();
             return;
         }
             
-        wand.PlaySound(SoundType.Foll, wand.target.creature.transform);
+        wand.PlaySound(SoundType.Foll, creature.transform);
             
-        wand.target.creature.handLeft?.TryRelease();
-        wand.target.creature.handRight?.TryRelease();
-        wand.target.creature.brain.SetState(Brain.State.Idle);
-        wand.target.creature.brain.currentTarget = null;
-        wand.target.creature.SetFaction(1);
+        creature.handLeft?.TryRelease();
+        creature.handRight?.TryRelease();
+        creature.brain.SetState(Brain.State.Idle);
+        creature.brain.currentTarget = null;
+        creature.SetFaction(1);
     }
 
     public void MimicOrder() {
-        if (wand.target?.creature == null) {
+        if (wand.target is not Creature creature) {
             wand.Reset();
             return;
         }
             
-        wand.PlaySound(SoundType.Quough, wand.target.creature.transform);
+        wand.PlaySound(SoundType.Quough, creature.transform);
 
-        wand.target.creature.gameObject.GetOrAddComponent<MimicBehaviour>().Init(this);
+        creature.gameObject.GetOrAddComponent<MimicBehaviour>().Init(this);
     }
 }
 

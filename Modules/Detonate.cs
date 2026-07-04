@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace Wand; 
 
-public class Detonate : WandModule {
+public class Detonate : WandSkill {
     public static ItemData projectileData;
     public static DamagerData damagerData;
     public static EffectData fireballEffectData;

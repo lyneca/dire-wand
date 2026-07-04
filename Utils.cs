@@ -737,6 +737,33 @@ namespace ExtensionMethods {
                 .GetMethod("MemberwiseClone", BindingFlags.Instance | BindingFlags.NonPublic);
             return (T)inst?.Invoke(obj, null);
         }
+     public static void OnNextCollision(this ThunderEntity entity, Action<CollisionInstance> action, float timeout = Mathf.Infinity) {
+         float startTime = Time.time;
+         void OnCollision(CollisionInstance collision)
+         {
+             if (Time.time - startTime < timeout)
+                 action(collision);
+             switch (entity)
+             {
+                 case Creature creature:
+                     creature.ragdoll.rootPart.collisionHandler.OnCollisionStartEvent -= OnCollision;
+                     break;
+                 case Item item:
+                     item.mainCollisionHandler.OnCollisionStartEvent -= OnCollision;
+                     break;
+             }
+         }
+         switch (entity)
+         {
+             case Creature creature:
+                 creature.ragdoll.rootPart.collisionHandler.OnCollisionStartEvent += OnCollision;
+                 break;
+             case Item item:
+                 item.mainCollisionHandler.OnCollisionStartEvent += OnCollision;
+                 break;
+         }
+     }
+        
     }
 
     public static class Hands {

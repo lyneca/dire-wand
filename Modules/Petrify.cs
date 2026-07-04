@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace Wand; 
 
-public class Petrify : WandModule {
+public class Petrify : WandSkill {
     public override void OnInit() {
         base.OnInit();
         wand.targetedItem
@@ -18,15 +18,15 @@ public class Petrify : WandModule {
 
     public void PetrifyEntity() {
         MarkCasted();
-        wand.PlaySound(SoundType.Quough, wand.target.Transform);
-        if (wand.target?.creature is Creature creature) {
+        wand.PlaySound(SoundType.Quough, wand.TargetTransform);
+        if (wand.target is Creature creature) {
             creature.gameObject.GetOrAddComponent<ParalysisModifier>().AddHandler(this);
-            wand.module.freezeEffectData.Spawn(wand.target.Transform).Play();
+            wand.module.freezeEffectData.Spawn(wand.TargetTransform).Play();
             wand.canRestart = true;
-        } else if (wand.target?.item is Item item) {
+        } else if (wand.target is Item item) {
             item.gameObject.GetComponent<BounceBehaviour>()?.Deactivate();
             item.gameObject.GetOrAddComponent<FreezeModifier>().AddHandler(this);
-            wand.module.freezeEffectData.Spawn(wand.target.Transform).Play();
+            wand.module.freezeEffectData.Spawn(wand.TargetTransform).Play();
             wand.canRestart = true;
         }
     }

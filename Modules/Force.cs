@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace Wand; 
 
-public class Force : WandModule {
+public class Force : WandSkill {
     public override void OnInit() {
         base.OnInit();
         wand.button.Then(() => wand.holdingHand.Velocity().IsFacing(wand.holdingHand.PalmDir())
@@ -40,12 +40,12 @@ public class Force : WandModule {
                     creature.TryPush(Creature.PushType.Magic, direction, 3);
                     if (!creature.isKilled)
                         creature.ragdoll.SetState(Ragdoll.State.Destabilized);
-                    creature.Inflict<Floating>(this, 3);
+                    creature.Inflict("Floating", this, 3);
                 }
 
                 if (rb.GetComponentInParent<Item>() is Item hitItem) {
                     if (hitItem.mainHandler?.creature?.isPlayer == true) continue;
-                    hitItem.Inflict<Floating>(this, 3);
+                    hitItem.Inflict("Floating", this, 3);
                 }
                 rb.AddForce(
                     direction

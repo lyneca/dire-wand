@@ -5,7 +5,7 @@ using UnityEngine.PlayerLoop;
 
 namespace Wand; 
 
-public class Grapple : WandModule {
+public class Grapple : WandSkill {
     public string grappleLineEffectId = "GrappleLine";
     public EffectData grappleLineEffectData;
     public override void OnInit() {

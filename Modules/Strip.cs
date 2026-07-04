@@ -7,7 +7,7 @@ using UnityEngine.Experimental.Audio;
 
 namespace Wand; 
 
-public class Strip : WandModule {
+public class Strip : WandSkill {
     public override void OnInit() {
         base.OnInit();
         wand.targetedEnemy
@@ -41,28 +41,28 @@ public class Strip : WandModule {
     }
 
     public void StripEnemy() {
-        if (!wand.target.isCreature) return;
+        if (wand.target is not Creature creature) return;
         MarkCasted();
         Player.currentCreature.gameObject.GetOrAddComponent<ArmorSwapper>();
-        for (var i = 0; i < wand.target.creature.ragdoll.parts.Count; i++) {
-            var part = wand.target.creature.ragdoll.parts[i];
+        for (var i = 0; i < creature.ragdoll.parts.Count; i++) {
+            var part = creature.ragdoll.parts[i];
             if (part.isSliced) return;
         }
 
-        for (var i = 0; i < wand.target.creature.equipment.wearableSlots.Count; i++) {
-            var slot = wand.target.creature.equipment.wearableSlots[i];
+        for (var i = 0; i < creature.equipment.wearableSlots.Count; i++) {
+            var slot = creature.equipment.wearableSlots[i];
             if (slot == null) {
                 continue;
             }
             for (var j = 0; j < slot.wardrobeLayers.Length; j++) {
                 if (slot.wardrobeLayers[j].layer == null) continue;
                 slot.UnEquip(slot.wardrobeLayers[j].layer, item => {
-                    var force = (slot.Part.transform.position - wand.target.WorldCenter).normalized;
+                    var force = (slot.Part.transform.position - wand.target.Center).normalized;
                     item.transform.position = slot.Part.transform.position
-                                              + (slot.Part.transform.position - wand.target.WorldCenter).normalized
+                                              + (slot.Part.transform.position - wand.target.Center).normalized
                                               * 0.1f;
-                    var creature = wand.target.creature;
-                    item.IgnoreRagdollCollision(creature.ragdoll);
+                    if (wand.target is not Creature targetCreature) return;
+                    item.IgnoreRagdollCollision(targetCreature.ragdoll);
                     item.RunAfter(item.ResetRagdollCollision, 0.8f);
                     item.physicBody.AddForce(force * 8, ForceMode.VelocityChange);
                 });

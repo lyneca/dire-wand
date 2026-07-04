@@ -8,7 +8,7 @@ using UnityEngine.PlayerLoop;
 
 namespace Wand; 
 
-public class Gather : WandModule {
+public class Gather : WandSkill {
     public override void OnInit() {
         base.OnInit();
         wand.trigger
@@ -24,27 +24,26 @@ public class Gather : WandModule {
     private IEnumerator CollectRoutine() {
         var collectPoint = wand.tip.position + Vector3.Slerp(wand.tipRay.direction, Player.local.head.transform.forward, 0.5f).normalized * 5;
 
-        int index = 0;
-        List<Entity> entities = new();
-        foreach (var item in Utils.AllItemsInRadius(collectPoint, 5)) {
-            if (index > 7) break;
-            if (item.Free()) {
-                entities.Add(item.gameObject.GetOrAddComponent<Entity>());
-                index++;
-            }
+        Dictionary<Item, RBPID> entities = new();
+        var items = ThunderEntity.InRadiusNaive(collectPoint, 5, Filter.FreeItems);
+        for (int i = 0; i < 7; i++)
+        {
+            if (!items.RandomFilteredSelectInPlace(each => each is Item eachItem && !entities.ContainsKey(eachItem),
+                    out var entity) || entity is not Item item) break;
+            entities[item] = new RBPID(item.physicBody.rigidBody, forceMode: ForceMode.Acceleration, maxForce: 5000)
+                .Position(50, 0, 5).Rotation(50, 0, 5);
         }
 
-        Dictionary<Entity, (Vector3 offset, Vector3 axis)> offsets = new();
+        Dictionary<ThunderEntity, (Vector3 offset, Vector3 axis)> offsets = new();
 
-        for (var i = 0; i < entities.Count; i++) {
-            var entity = entities[i];
-            entity.Inflict<Physical>(this);
-
-            entity.Rigidbody().AddForce(
-                (Vector3.up + (wand.tip.position - entity.WorldCenter).normalized * 0.3f)
-                * ((item?.GetMassModifier().Randomize(0.6f) ?? 1f) * 6f), ForceMode.Impulse);
-            entity.Rigidbody().AddTorque(
-                Utils.RandomVector() * ((item?.GetMassModifier().Randomize(0.6f) ?? 1f) * 3f),
+        foreach (var kvp in entities)
+        {
+            var entity = kvp.Key;
+            entity.AddForce(
+                (Vector3.up + (wand.tip.position - entity.Center).normalized * 0.3f)
+                * ((wandItem?.GetMassModifier().Randomize(0.6f) ?? 1f) * 6f), ForceMode.Impulse);
+            entity.physicBody.AddTorque(
+                Utils.RandomVector() * ((wandItem?.GetMassModifier().Randomize(0.6f) ?? 1f) * 3f),
                 ForceMode.Impulse);
 
             offsets[entity] = (Random.insideUnitSphere.ClampMagnitude(0.2f, 0.8f) * 1.5f, Random.onUnitSphere);
@@ -57,19 +56,17 @@ public class Gather : WandModule {
                          * Mathf.Clamp(wand.tipVelocity.magnitude, 0.0f, 8f)
                          / 5f;
 
-            for (var i = 0; i < entities.Count; i++) {
-                var entity = entities[i];
-                entity.UpdatePull(target
+            foreach (var kvp in entities)
+            {
+                var entity = kvp.Key;
+                var pid = kvp.Value;
+                pid.UpdateVelocity(target
                                   + wand.tip.rotation
                                   * Quaternion.AngleAxis(Time.time * 60, offsets[entity].axis)
                                   * offsets[entity].offset);
             }
 
             yield return 0;
-        }
-
-        for (var i = 0; i < entities.Count; i++) {
-            entities[i].Remove<Physical>(this);
         }
 
         yield return 0;

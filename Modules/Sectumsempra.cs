@@ -11,7 +11,7 @@ using Random = UnityEngine.Random;
 
 namespace Wand; 
 
-public class Sectumsempra : WandModule {
+public class Sectumsempra : WandSkill {
     public Args effectArgs = new Args() {
         gradient = Utils.FadeInOutGradient(
             Utils.HexColor(150, 10, 10, 6),
@@ -27,8 +27,8 @@ public class Sectumsempra : WandModule {
                 wand.Flick(AxisDirection.Left),
                 wand.Brandish())
             .Do(() => {
-                var entity = wand.TargetCreature(effectArgs);
-                wand.RunAfter(() => BleedEnemy(entity.creature), 0.3f);
+                var entity = wand.TargetEntity(null, Filter.LiveHumanNPCs, effectArgs);
+                wand.RunAfter(() => BleedEnemy(entity as Creature), 0.3f);
             }, "Sectumsempra");
         damager = wand.objectPool.Get().AddComponent<Damager>();
         damager.data = Catalog.GetData<DamagerData>("SwordSlash2H");

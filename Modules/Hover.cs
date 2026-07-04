@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace Wand;
 
-public class Hover : WandModule {
+public class Hover : WandSkill {
     public EffectData slamEffect;
     public override void OnInit() {
         base.OnInit();
@@ -18,10 +18,10 @@ public class Hover : WandModule {
             var slam = wand.Offhand.Moving(Direction.Down).Palm(Direction.Down).Gripping;
 
             state
-                .ThenRepeatable(hover)
+                .ThenRepeatable(wand.Flick(AxisDirection.Up, wand.module.gestureVelocityLarge))
                 .Do(HoverEntity, "Hover Entity");
             state
-                .ThenRepeatable(slam)
+                .ThenRepeatable(wand.Flick(AxisDirection.Down, wand.module.gestureVelocityLarge))
                 .Do(SlamEntity, "Slam Entity");
         });
 
@@ -29,21 +29,20 @@ public class Hover : WandModule {
 
     public void HoverEntity() {
         MarkCasted();
-        wand.target.Inflict<Floating>(this);
+        wand.target.Inflict("WandFloating", this, 10);
     }
 
     public void SlamEntity() {
-        wand.target.Clear<Floating>();
-        Catalog.GetData<EffectData>("WandDescend").Spawn(wand.target.WorldCenter, Quaternion.identity).Play();
-        wand.target.Rigidbody().AddForce(Vector3.down * (8 * (wand.target.isCreature ? 30 : 3)),
-            ForceMode.VelocityChange);
+        wand.target.Clear("WandFloating");
+        Catalog.GetData<EffectData>("WandDescend").Spawn(wand.target.Center, Quaternion.identity).Play();
+        wand.target.AddForce(Vector3.down * 24, ForceMode.VelocityChange);
         var target = wand.target;
         wand.target.OnNextCollision(instance => {
             if (instance.impactVelocity.magnitude < 4) return;
             wand.module.SpawnShockwave(instance.contactPoint + instance.contactNormal * 0.1f, instance.contactNormal);
             Utils.Explosion(instance.contactPoint, instance.impactVelocity.magnitude.Clamp(0, 20) / 2, 3.5f, true, affectPlayer: true);
             slamEffect.Spawn(instance.contactPoint, Quaternion.identity).Play();
-            target.Inflict<Floating>((this, "shockwave"), 2);
+            target.Inflict("WandFloating", (this, "shockwave"), 2);
         }, 3);
     }
 }

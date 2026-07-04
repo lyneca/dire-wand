@@ -1,0 +1,42 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>RainyReignGames.MeshUtilities</name>
+    </assembly>
+    <members>
+        <member name="M:RainyReignGames.MeshUtilities.CustomRaycast.Raycast(UnityEngine.Ray,System.Single,UnityEngine.SkinnedMeshRenderer,RainyReignGames.MeshUtilities.CustomRaycast.RaycastHit@,System.Int32)">
+            <summary>
+            Bake the mesh on skinnedMeshRendered, compute a raycast, and return the hit. No need to bake the mesh before invocation.
+            </summary>
+            <param name="ray"></param>
+            <param name="maxDistance"></param>
+            <param name="skinnedMeshRenderer"></param>
+            <param name="hit"></param>
+            <param name="maxHits"></param>
+            <returns></returns>
+        </member>
+        <member name="M:RainyReignGames.MeshUtilities.CustomRaycast.RaycastAll(UnityEngine.Ray,System.Single,System.Collections.Generic.IList{UnityEngine.SkinnedMeshRenderer},RainyReignGames.MeshUtilities.CustomRaycast.RaycastHit@,System.Int32)">
+            <summary>
+            Custom raycast that can hit any of a list of SkinnedMeshRenderer for greater efficiency.
+            </summary>
+            <param name="ray"></param>
+            <param name="maxDistance"></param>
+            <param name="skinnedMeshRenderers"></param>
+            <param name="hit"></param>
+            <param name="maxHits"></param>
+            <returns>Closest RaycastHit. Infinite distance means that there was no hit found.</returns>
+        </member>
+        <member name="T:RainyReignGames.MeshUtilities.CustomRaycast.RaycastHit">
+            <summary>
+             Some properties of built-in Physics.RaycastHit are read-only, so using a custom struct here
+            </summary>
+        </member>
+        <member name="M:RainyReignGames.MeshUtilities.MeshUtilities.CreateMinimalSkinnedMeshRenderer(UnityEngine.SkinnedMeshRenderer@)">
+            <summary>
+            Function to create a minimal gameobject hierarchy with skinned mesh renderer, bones, and a mesh.
+            Helpful for calling function on at runtime for JIT compiling.
+            </summary>
+            <returns></returns>
+        </member>
+    </members>
+</doc>

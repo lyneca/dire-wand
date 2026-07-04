@@ -11,7 +11,7 @@ using UnityEngine;
 
 namespace Wand; 
 
-public class Grenade : WandModule {
+public class Grenade : WandSkill {
     protected GameObject tipFollower;
     protected EffectInstance spellChargeEffect;
     protected SpellCastCharge capturedSpell;

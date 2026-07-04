@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace Wand; 
 
-public class Thunderbolt : WandModule {
+public class Thunderbolt : WandSkill {
     private EffectData boltEffectData;
     private EffectData chargeEffectData;
 
@@ -111,7 +111,7 @@ public class Thunderbolt : WandModule {
 
         var newItems = Utils.AllItemsInRadius(targetPoint.position, 3, true).ToHashSet();
         foreach (var eachItem in items.Where(item => !newItems.Contains(item))) {
-            eachItem.Remove<Floating>(this);
+            eachItem.Remove("Floating", this);
         }
         
         if (Time.time - lastZap > 0.2f) {
@@ -133,7 +133,7 @@ public class Thunderbolt : WandModule {
 
         items = newItems;
         foreach (var eachItem in items) {
-            eachItem.Inflict<Floating>(this, withEffect: false);
+            eachItem.Inflict("Floating", this, playEffect: false);
         }
     }
 
@@ -150,7 +150,7 @@ public class Thunderbolt : WandModule {
         sparks.Despawn();
         
         foreach (var eachItem in items) {
-            eachItem.Remove<Floating>(this);
+            eachItem.Remove("Floating", this);
         }
         
         items = Utils.AllItemsInRadius(targetPoint.position, 4, true).ToHashSet();
@@ -160,16 +160,16 @@ public class Thunderbolt : WandModule {
         }
 
         float angle = Mathf.Infinity;
-        Entity target = null;
+        ThunderEntity target = null;
         foreach (var creature in Utils.CreaturesInRadius(targetPos,
                      (Vector3.Distance(targetPos, chargePoint.position) / 2).Clamp(5, Mathf.Infinity), false, true)) {
-            var entity = creature.gameObject.GetOrAddComponent<Entity>();
-            if (Vector3.Angle(wand.tipVelocity, entity.WorldCenter - chargePoint.position) < angle) target = entity;
+            var entity = creature.gameObject.GetOrAddComponent<ThunderEntity>();
+            if (Vector3.Angle(wand.tipVelocity, entity.Center - chargePoint.position) < angle) target = entity;
         }
 
-        foreach (var creature in Utils.CreaturesInRadius(target?.WorldCenter ?? targetPos, 4)) {
-            var entity = creature.gameObject.GetOrAddComponent<Entity>();
-            float distance = Vector3.Distance(target?.WorldCenter ?? targetPos, entity.WorldCenter);
+        foreach (var creature in Utils.CreaturesInRadius(target?.Center ?? targetPos, 4)) {
+            var entity = creature.gameObject.GetOrAddComponent<ThunderEntity>();
+            float distance = Vector3.Distance(target?.Center ?? targetPos, entity.Center);
             if (!creature.isKilled) {
                 creature.Damage(
                     new CollisionInstance(new DamageStruct(DamageType.Energy, 60 * distance.RemapClamp01(4, 0))));
@@ -179,20 +179,20 @@ public class Thunderbolt : WandModule {
                 Catalog.GetData<SpellCastLightning>("Lightning").imbueHitRagdollEffectData);
         }
 
-        Utils.FindFloor(target?.WorldCenter ?? targetPos, 1, out var floor);
+        Utils.FindFloor(target?.Center ?? targetPos, 1, out var floor);
         Catalog.GetData<EffectData>("WandThunderboltHit")
             .Spawn(target != null ? floor : targetPoint.position,
                 Quaternion.LookRotation(Vector3.up)).Play();
 
         var boltEffect = boltEffectData.Spawn(Vector3.Lerp(chargePoint.position, targetPos, 0.5f), Quaternion.identity);
         boltEffect.SetSource(chargePoint);
-        boltEffect.SetTarget(target?.Transform ?? targetPoint);
+        boltEffect.SetTarget(target?.RootTransform ?? targetPoint);
         boltEffect.Play();
-        if (target) {
-            target.creature.Kill();
-            target.creature.ragdoll.SliceAll();
-            for (var i = 0; i < target.creature.ragdoll.parts.Count; i++) {
-                target.creature.ragdoll.parts[i].physicBody.AddForce((Vector3.up * 2 + Random.onUnitSphere * 3) * 3,
+        if (target is Creature hitCreature) {
+            hitCreature.Kill();
+            hitCreature.ragdoll.SliceAll();
+            for (var i = 0; i < hitCreature.ragdoll.parts.Count; i++) {
+                hitCreature.ragdoll.parts[i].physicBody.AddForce((Vector3.up * 2 + Random.onUnitSphere * 3) * 3,
                     ForceMode.VelocityChange);
             }
         }

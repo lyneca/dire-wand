@@ -1,0 +1,48 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>RaycastTexture</name>
+    </assembly>
+    <members>
+        <member name="M:FluidSimSettings.#ctor(Fluxy.FluxyContainer,Fluxy.FluxyTarget)">
+            <summary>
+            Pull settings from existing fluxy components
+            </summary>
+        </member>
+        <member name="M:Shadowood.GlobalSkyCube.SetCubemapRotation(System.Single)">
+            <summary>
+             Values is wrapped to stay within 0-360
+            Sets rotation of the cubemap for reflection on surface and the cubemap you see faking a grabpass from under surface.
+            </summary>
+        </member>
+        <member name="M:Shadowood.RaycastTexture.OceanRenderer.MethodSetupMatricesNoSpline">
+            <summary>
+            Create matrix list for grid rendering, but with no use of spline mask, fall back for if it fails at runtime / is missing the cache
+            </summary>
+        </member>
+        <member name="M:Shadowood.RaycastTexture.RaycastTexture.Setup(System.Boolean)">
+            <summary>
+            Setup ran on Validate and OnEnable and on demand
+            </summary>
+        </member>
+        <member name="M:Shadowood.RaycastTexture.RaycastTexture.BlurSorcery(UnityEngine.Texture)">
+            <summary>
+            dilationTex : RG floodfill/distance field direction, B field distance, A coast edge line/intersection mask used to generate the field from
+            colorResult : RGB albedo color for under water, A coast edge line/intersection mask
+            depthTex : 
+            </summary>
+        </member>
+        <member name="M:Shadowood.RaycastTexture.RaycastTexture.BlurSorceryColor(UnityEngine.Texture,UnityEngine.Texture)">
+            <summary>
+            dilationTex : RG floodfill/distance field direction, B field distance, A coast edge line/intersection mask used to generate the field from
+            colorResult : RGB albedo color for under water, A coast edge line/intersection mask
+            depthTex : 
+            </summary>
+        </member>
+        <member name="M:Shadowood.RaycastTexture.RaycastTexture.DilationDistanceField">
+            <summary>
+            Distancefield: RG for XY direction towards shoreline, B for distance, A unused set to 1.0, created from single color intersection texture input
+            </summary>
+        </member>
+    </members>
+</doc>

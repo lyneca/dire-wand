@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Wand;
 
-public class Align : WandModule {
+public class Align : WandSkill {
     public override void OnInit() {
         base.OnInit();
         wand.trigger.Then(wand.Swirl(SwirlDirection.Clockwise)).Then(wand.Brandish()).Do(AlignPlayer);

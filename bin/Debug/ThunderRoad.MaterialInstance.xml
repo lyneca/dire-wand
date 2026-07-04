@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>ThunderRoad.MaterialInstance</name>
+    </assembly>
+    <members>
+        <member name="P:ThunderRoad.MaterialInstance.material">
+            <summary>
+            Returns the first instantiated Material assigned to the renderer, similar to <see href="https://docs.unity3d.com/ScriptReference/Renderer-material.html">Renderer.material</see>.
+            </summary>
+        </member>
+        <member name="P:ThunderRoad.MaterialInstance.materials">
+            <summary>
+            Returns all the instantiated materials of this object, similar to <see href="https://docs.unity3d.com/ScriptReference/Renderer-materials.html">Renderer.materials</see>.
+            </summary>
+        </member>
+    </members>
+</doc>

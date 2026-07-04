@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace Wand; 
 
-public class Expelliarmus : WandModule {
+public class Expelliarmus : WandSkill {
     public override void OnInit() {
         base.OnInit();
 
@@ -20,9 +20,9 @@ public class Expelliarmus : WandModule {
 
     public void DisarmEntity() {
         MarkCasted();
-        var heldItem = wand.target?.creature is Creature creature
-            ? creature.handRight?.grabbedHandle?.item ?? wand.target.creature.handLeft?.grabbedHandle?.item
-            : wand.target?.handler?.item;
+        var heldItem = wand.target is Creature creature
+            ? creature.handRight?.grabbedHandle?.item ?? creature.handLeft?.grabbedHandle?.item
+            : wand.target as Item;
         if (heldItem == null) {
             wand.Reset();
             return;
@@ -34,7 +34,7 @@ public class Expelliarmus : WandModule {
             heldItem.IgnoreRagdollCollision(holder);
         }
 
-        wand.StartCoroutine(ArcToHand(heldItem, item.mainHandler.otherHand));
+        wand.StartCoroutine(ArcToHand(heldItem, wandItem.mainHandler.otherHand));
     }
 
     public IEnumerator ArcToHand(Item item, RagdollHand hand) {

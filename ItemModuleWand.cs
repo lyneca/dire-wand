@@ -4,10 +4,8 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 // using DebugViz;
-using HarmonyLib;
 using ExtensionMethods;
 using GestureEngine;
-using Newtonsoft.Json;
 using ThunderRoad;
 using UnityEngine;
 using UnityEngine.Pool;
@@ -35,170 +33,163 @@ public class HingeLinker : MonoBehaviour {
     public HingeDrive linkedDrive;
 }
 
-[HarmonyPatch(typeof(HingeDrive), "Init")]
-public static class HingeDrivePatch {
-    public static void Postfix(HingeDrive __instance) {
-        __instance.hingesHolder.gameObject.AddComponent<HingeLinker>().linkedDrive = __instance;
-    }
-}
-
-public class Entity : MonoBehaviour {
-    public Creature creature;
-    public CollisionHandler handler;
-    public Item item;
-    public bool isCreature = false;
-    public bool throwOnRelease;
-
-    public Action<Entity> whileGrabbed = null;
-    public Action<Entity> onUnGrab = null;
-
-    public Transform Transform => creature?.GetTorso().transform ?? item.transform;
-
-    public Vector3 WorldCenter => creature?.GetTorso().transform.position
-                                  ?? item.transform.TransformPoint(item.GetLocalCenter());
-    // public bool shouldRelease = true;
-    // public UnityEvent<Entity> onReleaseEvent;
-    // public bool grabbed;
-
-    public void OnNextCollision(Action<CollisionInstance> action, float timeout = Mathf.Infinity) {
-        float startTime = Time.time;
-        void OnCollision(CollisionInstance collision) {
-            if (Time.time - startTime < timeout)
-                action(collision);
-            if (isCreature)
-                creature.ragdoll.rootPart.collisionHandler.OnCollisionStartEvent -= OnCollision;
-            else
-                item.mainCollisionHandler.OnCollisionStartEvent -= OnCollision;
-        }
-        if (isCreature)
-            creature.ragdoll.rootPart.collisionHandler.OnCollisionStartEvent += OnCollision;
-        else
-            item.mainCollisionHandler.OnCollisionStartEvent += OnCollision;
-    }
-
-    public void Awake() {
-        // onReleaseEvent = new UnityEvent<Entity>();
-        breakableJoints ??= new List<SpringJoint>();
-        breakableItems ??= new List<Item>();
-
-        if (GetComponent<Creature>() is Creature creature) {
-            this.creature = creature;
-            isCreature = true;
-            creature.OnDespawnEvent += time => {
-                if (time == EventTime.OnStart)
-                    Destroy();
-            };
-        } else if (GetComponent<Item>() is Item item) {
-            this.item = item;
-            handler = item.mainCollisionHandler;
-            item.OnDespawnEvent += time => {
-                if (time == EventTime.OnStart)
-                    Destroy();
-            };
-        }
-
-        pid = new RBPID(Rigidbody, forceMode: ForceMode.Acceleration, maxForce: isCreature ? 30000 : 5000)
-            .Position(isCreature ? 100 : 50, 0, 5)
-            .Rotation(isCreature ? 100 : 50, 0, 5);
-    }
-
-    public void Destroy() {
-        // Release();
-        this.ClearAll();
-        Destroy(this);
-    }
-
-    public Rigidbody Rigidbody() {
-        if (creature) {
-            return creature.ragdoll.state == Ragdoll.State.NoPhysic
-                ? creature.locomotion.physicBody.rigidBody
-                : creature.GetTorso().physicBody.rigidBody;
-        }
-
-        return handler?.physicBody.rigidBody;
-    }
-
-    public void SetPhysicModifier(object obj, float? gravity = null, float mass = 1, float drag = -1, float angularDrag = -1) {
-        handler?.SetPhysicModifier(obj, gravity, mass, drag, angularDrag);
-        creature?.ragdoll.SetPhysicModifier(obj, gravity, mass, drag, angularDrag);
-    }
-
-    public void RemovePhysicModifier(object obj) {
-        handler?.RemovePhysicModifier(obj);
-        creature?.ragdoll.RemovePhysicModifier(obj);
-    }
-
-    public Vector3 Center() {
-        if (creature) {
-            return creature.GetTorso().transform.position;
-        }
-
-        return Rigidbody()?.worldCenterOfMass ?? item.transform.position;
-    }
-
-    public RBPID pid;
-
-    public Coroutine PullTowards(Vector3 position) {
-        return StartCoroutine(PullTowardsRoutine(position));
-    }
-    
-    public void UpdatePull(Vector3 position) {
-        pid.UpdateVelocity(position);
-    }
-
-    protected IEnumerator PullTowardsRoutine(Vector3 position, float maxDuration = 10) {
-        yield return Utils.LoopOver(_ => {
-            if (Vector3.Distance(Transform.position, position) > 1)
-                UpdatePull(position);
-        }, maxDuration);
-    }
-
-    private List<SpringJoint> breakableJoints;
-    private List<Item> breakableItems;
-
-    public void PickupBreakables() {
-        if (isCreature || item.GetComponent<BreakableTracker>() is not BreakableTracker tracker) return;
-        
-        DropBreakables();
-
-        foreach (var piece in tracker.otherPieces) {
-            if (piece?.rigidBody && piece.rigidBody.GetComponentInParent<Item>() is Item brokenItem && brokenItem != item) {
-                var joint = item.gameObject.AddComponent<SpringJoint>();
-                joint.autoConfigureConnectedAnchor = false;
-                joint.connectedBody = piece.rigidBody;
-                joint.spring = 30f * piece.rigidBody.mass;
-                joint.damper = 2f * piece.rigidBody.mass;
-                joint.massScale = 0;
-                joint.minDistance = 0;
-                breakableItems.Add(brokenItem);
-                brokenItem.Inflict<Floating>(this, withEffect: false);
-                brokenItem.Inflict<Physical>(this, withEffect: false);
-                joint.maxDistance = 0.2f;
-                breakableJoints.Add(joint);
-            }
-        }
-    }
-
-    public void DropBreakables(WandBehaviour wand = null, bool shouldThrow = false) {
-        foreach (var joint in breakableJoints) {
-            Object.Destroy(joint);
-        }
-
-        foreach (var brokenItem in breakableItems) {
-            if (!brokenItem) continue;
-            brokenItem.Remove<Floating>(this);
-            brokenItem.Remove<Physical>(this);
-            if (wand && shouldThrow) {
-                brokenItem.physicBody.rigidBody.AddForce(
-                    brokenItem.physicBody.rigidBody.HomingThrow(
-                        Quaternion.AngleAxis(Random.Range(0, 30), Random.onUnitSphere) * wand.tipVelocity * 5, 30),
-                    ForceMode.VelocityChange);
-            }
-        }
-        breakableItems.Clear();
-        breakableJoints.Clear();
-    }
-}
+// public class Entity : MonoBehaviour {
+//     public Creature creature;
+//     public CollisionHandler handler;
+//     public Item item;
+//     public bool isCreature = false;
+//     public bool throwOnRelease;
+// 
+//     public Action<Entity> whileGrabbed = null;
+//     public Action<Entity> onUnGrab = null;
+// 
+//     public Transform Transform => creature?.GetTorso().transform ?? item.transform;
+// 
+//     public Vector3 WorldCenter => creature?.GetTorso().transform.position
+//                                   ?? item.transform.TransformPoint(item.GetLocalCenter());
+//     // public bool shouldRelease = true;
+//     // public UnityEvent<Entity> onReleaseEvent;
+//     // public bool grabbed;
+// 
+//     public void OnNextCollision(Action<CollisionInstance> action, float timeout = Mathf.Infinity) {
+//         float startTime = Time.time;
+//         void OnCollision(CollisionInstance collision) {
+//             if (Time.time - startTime < timeout)
+//                 action(collision);
+//             if (isCreature)
+//                 creature.ragdoll.rootPart.collisionHandler.OnCollisionStartEvent -= OnCollision;
+//             else
+//                 item.mainCollisionHandler.OnCollisionStartEvent -= OnCollision;
+//         }
+//         if (isCreature)
+//             creature.ragdoll.rootPart.collisionHandler.OnCollisionStartEvent += OnCollision;
+//         else
+//             item.mainCollisionHandler.OnCollisionStartEvent += OnCollision;
+//     }
+// 
+//     public void Awake() {
+//         // onReleaseEvent = new UnityEvent<Entity>();
+//         breakableJoints ??= new List<SpringJoint>();
+//         breakableItems ??= new List<Item>();
+// 
+//         if (GetComponent<Creature>() is Creature creature) {
+//             this.creature = creature;
+//             isCreature = true;
+//             creature.OnDespawnEvent += time => {
+//                 if (time == EventTime.OnStart)
+//                     Destroy();
+//             };
+//         } else if (GetComponent<Item>() is Item item) {
+//             this.item = item;
+//             handler = item.mainCollisionHandler;
+//             item.OnDespawnEvent += time => {
+//                 if (time == EventTime.OnStart)
+//                     Destroy();
+//             };
+//         }
+// 
+//         pid = new RBPID(Rigidbody, forceMode: ForceMode.Acceleration, maxForce: isCreature ? 30000 : 5000)
+//             .Position(isCreature ? 100 : 50, 0, 5)
+//             .Rotation(isCreature ? 100 : 50, 0, 5);
+//     }
+// 
+//     public void Destroy() {
+//         // Release();
+//         this.ClearAll();
+//         Destroy(this);
+//     }
+// 
+//     public Rigidbody Rigidbody() {
+//         if (creature) {
+//             return creature.ragdoll.state == Ragdoll.State.NoPhysic
+//                 ? creature.locomotion.physicBody.rigidBody
+//                 : creature.GetTorso().physicBody.rigidBody;
+//         }
+// 
+//         return handler?.physicBody.rigidBody;
+//     }
+// 
+//     public void SetPhysicModifier(object obj, float? gravity = null, float mass = 1, float drag = -1, float angularDrag = -1) {
+//         handler?.SetPhysicModifier(obj, gravity, mass, drag, angularDrag);
+//         creature?.ragdoll.SetPhysicModifier(obj, gravity, mass, drag, angularDrag);
+//     }
+// 
+//     public void RemovePhysicModifier(object obj) {
+//         handler?.RemovePhysicModifier(obj);
+//         creature?.ragdoll.RemovePhysicModifier(obj);
+//     }
+// 
+//     public Vector3 Center() {
+//         if (creature) {
+//             return creature.GetTorso().transform.position;
+//         }
+// 
+//         return Rigidbody()?.worldCenterOfMass ?? item.transform.position;
+//     }
+// 
+//     public RBPID pid;
+// 
+//     public Coroutine PullTowards(Vector3 position) {
+//         return StartCoroutine(PullTowardsRoutine(position));
+//     }
+//     
+//     public void UpdatePull(Vector3 position) {
+//         pid.UpdateVelocity(position);
+//     }
+// 
+//     protected IEnumerator PullTowardsRoutine(Vector3 position, float maxDuration = 10) {
+//         yield return Utils.LoopOver(_ => {
+//             if (Vector3.Distance(Transform.position, position) > 1)
+//                 UpdatePull(position);
+//         }, maxDuration);
+//     }
+// 
+//     private List<SpringJoint> breakableJoints;
+//     private List<Item> breakableItems;
+// 
+//     public void () {
+//         if (isCreature || item.GetComponent<BreakableTracker>() is not BreakableTracker tracker) return;
+//         
+//         DropBreakables();
+// 
+//         foreach (var piece in tracker.otherPieces) {
+//             if (piece?.rigidBody && piece.rigidBody.GetComponentInParent<Item>() is Item brokenItem && brokenItem != item) {
+//                 var joint = item.gameObject.AddComponent<SpringJoint>();
+//                 joint.autoConfigureConnectedAnchor = false;
+//                 joint.connectedBody = piece.rigidBody;
+//                 joint.spring = 30f * piece.rigidBody.mass;
+//                 joint.damper = 2f * piece.rigidBody.mass;
+//                 joint.massScale = 0;
+//                 joint.minDistance = 0;
+//                 breakableItems.Add(brokenItem);
+//                 brokenItem.Inflict<Floating>(this, withEffect: false);
+//                 brokenItem.Inflict<Physical>(this, withEffect: false);
+//                 joint.maxDistance = 0.2f;
+//                 breakableJoints.Add(joint);
+//             }
+//         }
+//     }
+// 
+//     public void DropBreakables(WandBehaviour wand = null, bool shouldThrow = false) {
+//         foreach (var joint in breakableJoints) {
+//             Object.Destroy(joint);
+//         }
+// 
+//         foreach (var brokenItem in breakableItems) {
+//             if (!brokenItem) continue;
+//             brokenItem.Remove<Floating>(this);
+//             brokenItem.Remove<Physical>(this);
+//             if (wand && shouldThrow) {
+//                 brokenItem.physicBody.rigidBody.AddForce(
+//                     brokenItem.physicBody.rigidBody.HomingThrow(
+//                         Quaternion.AngleAxis(Random.Range(0, 30), Random.onUnitSphere) * wand.tipVelocity * 5, 30),
+//                     ForceMode.VelocityChange);
+//             }
+//         }
+//         breakableItems.Clear();
+//         breakableJoints.Clear();
+//     }
+// }
 
 
 
@@ -239,11 +230,7 @@ public class ItemModuleWand : ItemModule {
     public Material lightMat;
     public Material wandTrailMat;
 
-    public float creatureTargetAngle = 10;
-    public float itemTargetAngle = 15;
-    public float targetRange = 80;
-
-    public List<WandModule> spells;
+    public List<WandSkill> spells = [];
     
     public AnimationCurve shockwaveCurve = new Utils.CurveBuilder()
         .Key(0, 0, 0, 0)
@@ -251,13 +238,22 @@ public class ItemModuleWand : ItemModule {
         .Key(1, 1, 0, 0)
         .Build();
 
-    public Args targetArgs = new Args {
+    public Args targetArgs = new()
+    {
         gradient = Utils.FadeInOutGradient(
             Utils.HexColor(40, 30, 191, 6),
             Utils.HexColor(191, 0, 0, 6))
     };
 
-    public Args shoveArgs = new Args {
+    public Args profaneArgs = new()
+    {
+        gradient = Utils.FadeInOutGradient(
+            Utils.HexColor(0, 200, 0, 6),
+            Utils.HexColor(191, 0, 191, 6)),
+    };
+
+    public Args shoveArgs = new()
+    {
         gradient = Utils.FadeInOutGradient(
             Utils.HexColor(250, 80, 30, 6),
             Utils.HexColor(191, 0, 0, 6))
@@ -297,9 +293,21 @@ public class ItemModuleWand : ItemModule {
         .Color(Utils.HexColor(0, 0, 191, 2f), 1)
         .Build();
 
+    public float targetDistance = 25;
+    public float targetAngle = 20;
+
     private static readonly int Size = Shader.PropertyToID("Size");
     private static readonly int Warp = Shader.PropertyToID("Warp");
-    public float holdDuration = 0.5f;
+    
+    private void OnLevelLoad(LevelData levelData, LevelData.Mode mode, EventTime eventTime) {
+        if (eventTime == EventTime.OnStart) return;
+
+        if (SkillTree.instance == null || SkillTree.instance.transform == null) return;
+
+        for (var i = 0; i < SkillTree.instance.receptacles.Count; i++) {
+            SkillTree.instance.receptacles[i].itemMagnet.slots.Add("Wand");
+        }
+    }
 
     public class GestureNode : MonoBehaviour {
         public static AnimationCurve spawnCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
@@ -323,7 +331,9 @@ public class ItemModuleWand : ItemModule {
         }
     }
 
-    public void SpawnShockwave(Vector3 position, Vector3 facingDir, float size = 1) {
+    public void SpawnShockwave(Vector3 position, Vector3 facingDir, float size = 1)
+    {
+        if (GameManager.platform is PlatformAndroid) return;
         var shockwave = shockwavePool.Get();
         shockwave.transform.localScale = Vector3.one * (0.5f * size);
         shockwave.transform.SetPositionAndRotation(position,
@@ -365,17 +375,10 @@ public class ItemModuleWand : ItemModule {
     }
 
 
-    public override void OnItemDataRefresh(ItemData data) {
-        base.OnItemDataRefresh(data);
-        // Viz.Init();
-        if (ModManager.loadedMods.FirstOrDefault(mod => mod.Name == "Dire Wand") is ModManager.ModData mod)
-            Debug.Log($"Wand version {mod.ModVersion}");
-        
-        Debug.Log("Found spells: " + ", ".Join(spells));
-
-        new Harmony("com.lyneca.dire-wand").PatchAll();
-
-        Catalog.LoadAssetAsync<GameObject>("Lyneca.Wand.GesturePoint", obj => {
+    public override IEnumerator LoadAddressableAssetsCoroutine(ItemData data)
+    {
+        yield return Catalog.LoadAssetCoroutine<GameObject>("Lyneca.Wand.GesturePoint", obj =>
+            {
                 gestureNodePrefab = obj;
                 gestureNodePool = new ObjectPool<GestureNode>(
                     () => Object.Instantiate(gestureNodePrefab).GetOrAddComponent<GestureNode>(),
@@ -385,7 +388,8 @@ public class ItemModuleWand : ItemModule {
                 );
             },
             "ItemModuleWand");
-        Catalog.LoadAssetAsync<Material>(shockwaveMatAddress, mat => {
+        yield return Catalog.LoadAssetCoroutine<Material>(shockwaveMatAddress, mat =>
+        {
             shockwaveMat = mat;
             shockwavePool = new ObjectPool<Shockwave>(
                 () => GameObject.CreatePrimitive(PrimitiveType.Plane).AddComponent<Shockwave>().Init(this),
@@ -395,8 +399,18 @@ public class ItemModuleWand : ItemModule {
             );
         }, "ItemModuleWand");
 
-        Catalog.LoadAssetAsync<Material>("Lyneca.Wand.TrailMat", mat => wandTrailMat = mat, "ItemModuleWand");
-        Catalog.LoadAssetAsync<Material>("Lyneca.Wand.LightMat", mat => lightMat = mat, "ItemModuleWand");
+        yield return Catalog.LoadAssetCoroutine<Material>("Lyneca.Wand.TrailMat", mat => wandTrailMat = mat,
+            "ItemModuleWand");
+        yield return Catalog.LoadAssetCoroutine<Material>("Lyneca.Wand.LightMat", mat => lightMat = mat,
+            "ItemModuleWand");
+    }
+
+    public override void OnItemDataRefresh(ItemData data) {
+        base.OnItemDataRefresh(data);
+        
+        if (ModManager.loadedMods.FirstOrDefault(mod => mod.Name == "Dire Wand") is ModManager.ModData mod)
+            Debug.Log($"Wand version {mod.ModVersion}");
+        EventManager.onLevelLoad += OnLevelLoad;
 
         targetLineEffectData = Catalog.GetData<EffectData>(targetLineEffectId);
         cloneEffectData = Catalog.GetData<EffectData>(cloneEffectId);
@@ -427,13 +441,10 @@ public class ItemModuleWand : ItemModule {
         base.OnItemLoaded(item);
         var wand = item.gameObject.AddComponent<WandBehaviour>();
         wand.module = this;
-        for (var index = 0; index < spells.Count; index++) {
-            var spell = spells[index];
-            wand.spells.Add(spell.Clone());
-        }
-
         wand.Init();
-        wand.InitModules();
+        wand.ResetSteps();
+        wand.ReloadSpells();
+        
         Debug.Log($"Wand modules loaded. Rendered gesture tree:\n{wand.root.DisplayTree()}");
     }
 }
@@ -443,7 +454,7 @@ public class WandBehaviour : MonoBehaviour {
     public Item item;
     public Transform tip;
     protected Transform wandBase;
-    public Entity target;
+    public ThunderEntity target;
     public Vector3 tipVelocity;
     public Vector3 localTipVelocity;
     public Vector3 tipViewVelocity;
@@ -452,6 +463,10 @@ public class WandBehaviour : MonoBehaviour {
     protected Ray tipLookRay;
     public Ray tipPlayerRay;
     public ObjectPool<GameObject> objectPool;
+    
+    public delegate void WandSkillReload();
+
+    public static event WandSkillReload OnWandSkillReload;
 
     protected Color targetColor;
     protected Color actualColor;
@@ -481,8 +496,9 @@ public class WandBehaviour : MonoBehaviour {
     protected Step targetedEntity;
     public Step targetedEnemy;
     public Step targetedItem;
+    public Step profane;
 
-    public List<WandModule> spells;
+    public List<WandSkill> spells;
     private static readonly int EmissionColor = Shader.PropertyToID("_EmissionColor");
     private static readonly int ColorStart = Shader.PropertyToID("ColorStart");
     private static readonly int ColorEnd = Shader.PropertyToID("ColorEnd");
@@ -497,9 +513,9 @@ public class WandBehaviour : MonoBehaviour {
     public List<Action> onResetActions;
     public List<Action> untilResetActions;
 
-    public void Init() {
-        onResetActions = new List<Action>();
-        untilResetActions = new List<Action>();
+    public void Init()
+    {
+        Debug.Log("Init");
         trail = new GameObject("Trail").AddComponent<TrailRenderer>();
         trail.time = 1;
         trail.widthCurve = Utils.Curve(0.001f, 0.0001f);
@@ -513,7 +529,44 @@ public class WandBehaviour : MonoBehaviour {
         SetTrail(false);
     }
 
-    public void Awake() {
+    public void ResetSteps()
+    {
+        onResetActions = new List<Action>();
+        untilResetActions = new List<Action>();
+        
+        root = Step.Start(() => {
+            item.Haptic(0.7f);
+            // SpawnNode();
+        });
+
+        button = root
+            .Then(() => Buttoning, "Button Held",
+                runOnChange: false);
+
+        trigger = root.Then(() => Triggering, "Trigger Pressed", runOnChange: false);
+
+        targetedEntity = trigger
+            .Then(Brandish())
+            .Do(() => TargetEntity(null, null, module.targetArgs), "Target Entity");
+
+        profane = trigger
+            .Then(Swirl(SwirlDirection.CounterClockwise))
+            .Then(Brandish())
+            .Do(() => TargetEntity(null, Filter.NPCs, module.profaneArgs));
+
+        targetedEnemy = targetedEntity.Then(() => target is Creature , "Creature Targeted");
+        targetedItem = targetedEntity.Then(() => target is Item, "Item Targeted");
+    }
+
+    public static void InvokeWandSkillReload()
+    {
+        OnWandSkillReload?.Invoke();
+    }
+
+    public void Awake()
+    {
+        OnWandSkillReload += ReloadSpells;
+        
         objectPool = new ObjectPool<GameObject>(() => new GameObject(),
             obj => obj.SetActive(true),
             obj => {
@@ -531,7 +584,7 @@ public class WandBehaviour : MonoBehaviour {
             },
             obj => Destroy(obj), false, 10, 20);
 
-        spells = new List<WandModule>();
+        spells = new List<WandSkill>();
         rollingPoints = new Vector3[numRollingPoints];
         item = GetComponent<Item>();
 
@@ -548,24 +601,6 @@ public class WandBehaviour : MonoBehaviour {
         tipLookRay = new Ray();
         tipPlayerRay = new Ray();
 
-        root = Step.Start(() => {
-            item.Haptic(0.7f);
-            // SpawnNode();
-        });
-
-        button = root
-            .Then(() => Buttoning, "Button Held",
-                runOnChange: false);
-
-        trigger = root.Then(() => Triggering, "Trigger Pressed", runOnChange: false);
-
-        targetedEntity = trigger
-            .Then(Brandish())
-            .Do(() => TargetEntity(module.targetArgs), "Target Entity");
-
-        targetedEnemy = targetedEntity.Then(() => target?.creature != null, "Creature Targeted");
-        targetedItem = targetedEntity.Then(() => target?.item != null, "Item Targeted");
-            
         item.OnGrabEvent += (_, _) => Reset();
         item.OnHeldActionEvent += (_, _, action) => {
             switch (action) {
@@ -634,12 +669,34 @@ public class WandBehaviour : MonoBehaviour {
     //                      .InDirection((ViewDir)pushDirection, module.gestureVelocityNormal)));
     //}
 
-    public void InitModules() {
+    public void InitModules()
+    {
+        Debug.Log("Init Modules");
         for (var index = 0; index < spells.Count; index++) {
             var eachModule = spells[index];
             eachModule.Begin(this);
             eachModule.OnInit();
         }
+    }
+
+    public void ReloadSpells()
+    {
+        if (transform == null) return;
+        Debug.Log("Reloading wand spells...");
+        ResetSteps();
+        spells = [];
+
+        for (var i = 0; i < Player.currentCreature.container.contents.Count; i++)
+        {
+            if (Player.currentCreature.container.contents[i]?.catalogData is WandSkill skill)
+            {
+                spells.Add(skill.Clone() as WandSkill);
+            }
+        }
+        
+        spells.Sort((a, b) => a.order.CompareTo(b.order));
+
+        InitModules();
     }
 
     public void Update() {
@@ -1012,201 +1069,79 @@ public class WandBehaviour : MonoBehaviour {
         trail.emitting = !debug && state;
 
         if (trailColors != null) {
-            trail.material?.SetColor(ColorStart, trailColors.Item1);
-            trail.material?.SetColor(ColorEnd, trailColors.Item2);
+            trail.material?.SetColor(ColorStart, GameManager.platform is PlatformAndroid ? ((Vector4)trailColors.Item1).normalized : trailColors.Item1);
+            trail.material?.SetColor(ColorEnd, GameManager.platform is PlatformAndroid ? ((Vector4)trailColors.Item2).normalized : trailColors.Item2);
         }
     }
 
-    public Entity TargetEntity(Args args = null) {
-        target = GetTargetEntity();
+    public static bool LiveCreaturesAndItems(ThunderEntity entity)
+        => entity is Item or Creature { isKilled: false, isPlayer: false };
+
+    public ThunderEntity TargetEntity(Ray? direction = null, Func<ThunderEntity, bool> filter = null, Args args = null, bool doEffect = true)
+    {
+        target = ThunderEntity.AimAssist(direction ?? tipRay, module.targetDistance, module.targetAngle, filter ?? Filter.AllButPlayer);
 
         if (target == null) return null;
 
-        var line = module.targetLineEffectData.Spawn(transform);
-            
-        PlayCastEffect(args?.gradient ?? module.primaryGradient);
-
-        lineSource.SetPositionAndRotation(tip.position, tip.rotation);
-        line.SetSource(lineSource);
-        line.SetTarget(target.Transform);
-        if (args?.gradient is Gradient gradient) {
-            line.SetMainGradient(gradient);
-        }
-
-        PlaySound(SoundType.Ket);
-        line.Play();
-        //module.SpawnShockwave(tip.position, tip.position - targetEntity.transform.position, 0.2f);
-        module.castEffectData.Spawn(tip).Play();
-        module.targetEffectData.Spawn(target.Transform).Play();
-
-        return target;
-    }
-
-    public Entity GetTargetEntity(
-        Vector3? direction = null,
-        bool creatureOnly = false,
-        bool itemOnly = false,
-        bool preferCreature = false,
-        bool preferLive = false) {
-        var boundsSet = new List<Tuple<Bounds,Entity>>();
-        var ray = direction == null ? tipRay : new Ray(tip.transform.position, (Vector3)direction);
-
-        float maxDistance = Physics.Raycast(ray, out RaycastHit hit, Utils.GetMask(LayerName.None)) ? hit.distance : Mathf.Infinity;
-
-        //Viz.Lines("wand target line")
-        //    .SetPoints(tipRay.origin, tipRay.GetPoint(maxDistance == Mathf.Infinity ? 100 : maxDistance))
-        //    .Color(Color.blue)
-        //    .Show();
-
-        if (itemOnly != true) {
-            for (var index = 0; index < Creature.allActive.Count; index++) {
-                var creature = Creature.allActive[index];
-                if (creature.isCulled
-                    || creature.isPlayer
-                    || !creature.initialized
-                    || creature.ragdoll.state == Ragdoll.State.Disabled) continue;
-
-                var torso = creature.GetTorso();
-
-                var tipToCreature = torso.transform.position - ray.origin;
-                float creatureDistance = tipToCreature.magnitude;
-
-                float angleToCreature = Vector3.Angle(ray.direction, tipToCreature);
-                if (creatureDistance > maxDistance || (creatureDistance > 2 && angleToCreature > 20))
-                    continue;
-
-                var bounds = new Bounds(torso.transform.position, Vector3.one * 0.3f);
-                if (!creature.GetHead().isSliced && !creature.GetHead().parentPart.isSliced) {
-                    bounds.Encapsulate(new Bounds(creature.GetHead().transform.position, Vector3.one * 0.3f));
-                }
-
-
-                var entity = creature.gameObject.GetOrAddComponent<Entity>();
-                //var box = Viz.Box(entity, "bounds").Size(bounds.size).Color(Color.green);
-                //box.transform.SetParent(entity.Transform);
-                //box.transform.localPosition = entity.transform.InverseTransformPoint(bounds.center);
-    
-                boundsSet.Add(Tuple.Create(bounds, entity));
-            }
-        }
-
-        if (creatureOnly != true && (preferCreature != true || boundsSet.Count == 0)) {
-            for (var index = 0; index < Item.allActive.Count; index++) {
-                var otherItem = Item.allActive[index];
-
-                if (otherItem.isCulled
-                    || otherItem.physicBody.isKinematic
-                    || otherItem.mainHandler != null
-                    || otherItem.holder != null
-                    || otherItem == item) continue;
-
-                var handToItem = otherItem.transform.TransformPoint(otherItem.GetLocalCenter()) - ray.origin;
-                float itemDistance = handToItem.magnitude;
-                float angleToItem = Vector3.Angle(ray.direction, handToItem);
-
-                if (itemDistance > maxDistance || (itemDistance > 2 && angleToItem > 20))
-                    continue;
-
-                var bounds = new Bounds(otherItem.transform.position, Vector3.zero);
-                for (var i = 0; i < otherItem.colliderGroups.Count; i++) {
-                    for (var j = 0; j < otherItem.colliderGroups[i].colliders.Count; j++) {
-                        if (otherItem.colliderGroups[i].colliders[j].enabled) {
-                            bounds.Encapsulate(otherItem.colliderGroups[i].colliders[j].bounds);
-                        }
-                    }
-                }
-
-                var entity = otherItem.gameObject.GetOrAddComponent<Entity>();
-                //var box = Viz.Box(entity, "bounds").Size(bounds.size).Color(Color.green);
-                //box.transform.SetParent(entity.Transform);
-                //box.transform.localPosition = entity.transform.InverseTransformPoint(bounds.center);
-
-                boundsSet.Add(Tuple.Create(bounds, entity));
-            }
-        }
-
-        Entity outEntity = null;
-
-        float maxAngle = Mathf.Infinity;
-        Tuple<Bounds,Entity> closestIntersect = null;
-        
-        for (var i = 0; i < boundsSet.Count; i++) {
-            var (bounds, entity) = boundsSet[i];
-
-            var pointOnLine = Utils.ClosestPointOnLine(ray.origin, ray.direction, bounds.center);
-
-            var closestPointToLine = bounds.ClosestPoint(pointOnLine);
-
-            // if (preferLive && outEntity is { creature.isKilled: false } && entity is { creature.isKilled: true }) {
-            //     continue;
-            // }
-
-            //Viz.Lines(entity, "closestPoint").Color(Color.white).SetPoints(closestPointToLine, pointOnLine);
-            
-            // If it is too far away, skip it
-            if (Vector3.Distance(closestPointToLine, ray.origin) > maxDistance) {
-                //Viz.Box(entity, "bounds").Color(Color.grey);
-                continue;
-            }
-                
-            // If the target ray directly intersects, prioritize it
-            if (bounds.IntersectRay(ray, out float distance) && distance < maxDistance) {
-                maxDistance = distance;
-                closestIntersect = boundsSet[i];
-                outEntity = entity;
-                //Viz.Box(entity, "bounds").Color(Color.red);
-                continue;
-            }
-
-            // If we have found any objects that directly intersect, ignore the 'closest guess' algorithm below
-            if (closestIntersect != null) {
-                //Viz.Box(entity, "bounds").Color(Color.black);
-                continue;
-            }
-
-            var angle = Vector3.Angle(closestPointToLine - ray.origin, ray.direction);
-            
-            if (angle < 10 && angle < maxAngle) {
-                maxAngle = angle;
-                outEntity = entity;
-            }
-        }
-
-        return outEntity;
-    }
-
-    public Entity TargetCreature(Args args = null) {
-        var creature = Utils.TargetCreature(tipRay, 15, 40, null, false);
-
-        if (creature) {
-            target = creature.gameObject.GetOrAddComponent<Entity>();
-        }
-
-        if (target != null) {
+        if (doEffect)
+        {
             var line = module.targetLineEffectData.Spawn(transform);
-            line.SetSource(tip);
-            line.SetTarget(target.Transform);
-            if (args?.gradient is Gradient gradient) {
+            PlayCastEffect(args?.gradient ?? module.primaryGradient);
+
+            lineSource.SetPositionAndRotation(tip.position, tip.rotation);
+            line.SetSource(lineSource);
+            line.SetTarget(TargetTransform);
+            if (args?.gradient is Gradient gradient)
+            {
                 line.SetMainGradient(gradient);
             }
 
+            PlaySound(SoundType.Ket);
+
             line.Play();
-                
+
             //module.SpawnShockwave(tip.position, tip.position - targetEntity.transform.position, 0.2f);
             module.castEffectData.Spawn(tip).Play();
-            module.targetEffectData.Spawn(target.Transform).Play();
+            module.targetEffectData.Spawn(TargetTransform).Play();
         }
 
         return target;
     }
 
+    public Transform TargetTransform =>
+        target switch
+        {
+            Item targetItem => targetItem.transform,
+            Creature targetCreature => targetCreature.ragdoll.targetPart.transform,
+            _ => target?.RootTransform
+        };
+
+    public AxisDirection InwardsDirection => holdingHand?.side switch
+    {
+        Side.Right => AxisDirection.Right,
+        Side.Left => AxisDirection.Left,
+        null => AxisDirection.Left
+    };
+
+    public AxisDirection OutwardsDirection => holdingHand?.side switch
+    {
+        Side.Right => AxisDirection.Left,
+        Side.Left => AxisDirection.Right,
+        null => AxisDirection.Right
+    };
+    
+    public bool throwTarget;
+
     public void ClearTarget() {
         if (target == null) return;
-        if (target.Rigidbody() != null && target.throwOnRelease) {
-            target.throwOnRelease = false;
-            target.item?.Throw(1, Item.FlyDetection.Forced);
-            target.Rigidbody()
-                .AddForce(target.Rigidbody().HomingThrow(tipVelocity * (target.isCreature ? 15 : 5), 10), ForceMode.VelocityChange);
+        if (target != null && throwTarget) {
+            throwTarget = false;
+            (target as Item)?.Throw(1, Item.FlyDetection.Forced);
+            var velocity = tipVelocity;
+            if (Creature.AimAssist(target.RootPhysicBody.worldCenterOfMass, tipVelocity, 10, 20, out var point,
+                    Filter.LiveHumanNPCs))
+                velocity = (point.position - target.RootPhysicBody.worldCenterOfMass).normalized * velocity.magnitude;
+            target.AddForce(velocity, ForceMode.VelocityChange);
         }
 
         // if (target.shouldRelease) {
