@@ -14,6 +14,9 @@
         <Deterministic>true</Deterministic>
         <LangVersion>latest</LangVersion>
     </PropertyGroup>
+    <ItemGroup>
+        <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="All" />
+    </ItemGroup>
     <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
         <DebugSymbols>true</DebugSymbols>
         <DebugType>portable</DebugType>
@@ -101,6 +104,7 @@
         <Compile Include="Modules\Align.cs" />
         <Compile Include="Modules\Basic.cs" />
         <Compile Include="Modules\Cantrip.cs" />
+        <Compile Include="Modules\Charge.cs" />
         <Compile Include="Modules\Crush.cs" />
         <Compile Include="Modules\Debug.cs" />
         <Compile Include="Modules\Decapitate.cs" />
@@ -120,6 +124,7 @@
         <Compile Include="Modules\Lightning.cs" />
         <Compile Include="Modules\Lumos.cs" />
         <Compile Include="Modules\Repair.cs" />
+        <Compile Include="Modules\Spawn.cs" />
         <Compile Include="Modules\Thunderbolt.cs" />
         <Compile Include="Modules\Petrify.cs" />
         <Compile Include="Modules\Polymorph.cs" />
@@ -131,7 +136,6 @@
         <Compile Include="Modules\SlowZone.cs" />
         <Compile Include="Modules\Spongify.cs" />
         <Compile Include="Modules\Strip.cs" />
-        <Compile Include="PID.cs" />
         <Compile Include="Properties\AssemblyInfo.cs" />
         <Compile Include="SequenceTracker.cs" />
         <Compile Include="StateTracker.cs" />
@@ -141,6 +145,7 @@
     </ItemGroup>
     <ItemGroup />
     <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+    <!--
     <PropertyGroup>
         <PostBuildEvent>copy /Y $(TargetPath) "H:\BasSDK\BuildStaging\Assemblies\Windows\DireWand"
             copy /Y "$(TargetDir)\$(TargetName).pdb" "H:\BasSDK\BuildStaging\Assemblies\Windows\DireWand"
@@ -150,4 +155,5 @@
             copy /Y "$(TargetDir)\$(TargetName).pdb" "D:\Games\Steam\steamapps\common\Blade &amp; Sorcery\BladeAndSorcery_Data\StreamingAssets\Mods\DireWand"
         </PostBuildEvent>
     </PropertyGroup>
+    -->
 </Project>

@@ -231,6 +231,15 @@ public class ItemModuleWand : ItemModule {
     public Material wandTrailMat;
 
     public List<WandSkill> spells = [];
+
+    [ModOption("Unlock All Spells"), ModOptionButton]
+    public static void UnlockAllSpells()
+    {
+        var skills = Catalog.GetDataList<WandSkill>();
+        foreach (var skill in skills)
+            if (skill.showInTree && !skill.hideInSkillMenu)
+                Player.local.creature.TryAddSkill(skill);
+    }
     
     public AnimationCurve shockwaveCurve = new Utils.CurveBuilder()
         .Key(0, 0, 0, 0)
@@ -508,7 +517,7 @@ public class WandBehaviour : MonoBehaviour {
     private float swirlLearnRate = 0.01f;
     private int swirlLearnIterations = 10;
     public bool debug;
-    private bool swirling;
+    public bool swirling;
     public float swirlMinRadius = 0.05f;
     public List<Action> onResetActions;
     public List<Action> untilResetActions;
@@ -548,6 +557,11 @@ public class WandBehaviour : MonoBehaviour {
         targetedEntity = trigger
             .Then(Brandish())
             .Do(() => TargetEntity(null, null, module.targetArgs), "Target Entity");
+
+        profane = trigger
+            .Then(Swirl(SwirlDirection.Clockwise))
+            .Then(Brandish())
+            .Do(() => TargetEntity(null, Filter.NPCs, module.profaneArgs));
 
         profane = trigger
             .Then(Swirl(SwirlDirection.CounterClockwise))

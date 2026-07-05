@@ -1,7 +1,7 @@
-﻿using ExtensionMethods;
+﻿using System.Collections;
+using ExtensionMethods;
 using GestureEngine;
 using ThunderRoad;
-using ThunderRoad.AI.Action;
 using UnityEngine;
 
 namespace Wand; 
@@ -9,32 +9,44 @@ namespace Wand;
 public class Scale : WandSkill {
     public override void OnInit() {
         base.OnInit();
-        var shrink = Gesture.Both
-            .Moving(Direction.Together)
-            .Gripping;
-        var grow = Gesture.Both
-            .Moving(Direction.Apart)
-            .Gripping;
-
-        wand.targetedItem.Then(shrink).Do(() => ScaleEntity(0.5f));
-        wand.targetedItem.Then(grow).Do(() => ScaleEntity(2));
-        wand.targetedEnemy.Then(shrink).Do(() => ScaleEntity(0.5f));
-        wand.targetedEnemy.Then(grow).Do(() => ScaleEntity(2));
+            
+        wand.targetedItem
+            .Then(Gesture.OnSide(wand.otherHand.side).Gripping.Palm(Direction.Together).Moving(Direction.Apart))
+            .Do(StartScale);
+        wand.targetedItem
+            .Then(Gesture.OnSide(wand.otherHand.side).Gripping.Palm(Direction.Together).Moving(Direction.Together))
+            .Do(StartScale);
     }
 
-    protected void ScaleEntity(float scale) {
-        MarkCasted();
+    public void StartScale()
+    {
+        wand.StartCoroutine(ScaleRoutine(HandDistance));
+    }
+
+    public float HandDistance => Vector3.Distance(wand.holdingHand.palmCollider.transform.position,
+        wand.otherHand.palmCollider.transform.position);
+
+    public IEnumerator ScaleRoutine(float startDistance)
+    {
         ScaleHelper scaleHelper = wand.target switch
         {
             Creature creature => creature.gameObject.GetOrAddComponent<CreatureScaleHelper>(),
             Item item => item.gameObject.GetOrAddComponent<ItemScaleHelper>()
         };
-                
+
         wand.target.AddForce(Vector3.up * 3, ForceMode.VelocityChange);
-        scaleHelper.StartCoroutine(Utils.LoopOver(
-            time => scaleHelper.Scale(Mathf.Lerp(1, scale, time.Curve(0, 0.6f, 0.5f, 1))),
-            0.4f,
-            () => scaleHelper.Set(scale)));
+        wand.target.Inflict("BubbleGravity", this);
+
+        while (wand.active)
+        {
+            scaleHelper.Scale(ScaleRatio());
+            yield return 0;
+        }
+
+        scaleHelper.Set(ScaleRatio());
+        yield break;
+
+        float ScaleRatio() => 1 + (HandDistance - startDistance).RemapClamp(-0.5f, 0.5f, -0.5f, 0.5f);
     }
 
 

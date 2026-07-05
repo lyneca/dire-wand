@@ -24,13 +24,13 @@ public class Gather : WandSkill {
     private IEnumerator CollectRoutine() {
         var collectPoint = wand.tip.position + Vector3.Slerp(wand.tipRay.direction, Player.local.head.transform.forward, 0.5f).normalized * 5;
 
-        Dictionary<Item, RBPID> entities = new();
+        Dictionary<Item, PIDController> entities = new();
         var items = ThunderEntity.InRadiusNaive(collectPoint, 5, Filter.FreeItems);
         for (int i = 0; i < 7; i++)
         {
             if (!items.RandomFilteredSelectInPlace(each => each is Item eachItem && !entities.ContainsKey(eachItem),
                     out var entity) || entity is not Item item) break;
-            entities[item] = new RBPID(item.physicBody.rigidBody, forceMode: ForceMode.Acceleration, maxForce: 5000)
+            entities[item] = new PIDController(item.physicBody.rigidBody, forceMode: ForceMode.Acceleration, maxForce: 5000)
                 .Position(50, 0, 5).Rotation(50, 0, 5);
         }
 
