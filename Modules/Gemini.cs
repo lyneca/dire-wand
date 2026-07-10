@@ -4,11 +4,12 @@ using UnityEngine;
 namespace Wand; 
 
 public class Gemini : WandSkill {
-    public override void OnInit() {
-        base.OnInit();
+    public override void Register() {
+        base.Register();
         wand.targetedItem
             .ThenRepeatable(wand.Swirl(SwirlDirection.Either))
-            .Do(CloneItem, "Clone Item");
+            .Do(CloneItem, "Clone Item")
+            .Then(wand.Still());
     }
 
     public void CloneItem() {

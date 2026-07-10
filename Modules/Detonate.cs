@@ -11,8 +11,8 @@ public class Detonate : WandSkill {
     public static ItemData projectileData;
     public static DamagerData damagerData;
     public static EffectData fireballEffectData;
-    public override void OnInit() {
-        base.OnInit();
+    public override void Register() {
+        base.Register();
         projectileData = Catalog.GetData<ItemData>("DynamicProjectile");
         damagerData = Catalog.GetData<DamagerData>("Fireball");
         fireballEffectData = Catalog.GetData<EffectData>("SpellFireball");

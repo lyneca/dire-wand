@@ -7,8 +7,8 @@ using UnityEngine;
 namespace Wand; 
 
 public class Force : WandSkill {
-    public override void OnInit() {
-        base.OnInit();
+    public override void Register() {
+        base.Register();
         wand.button.Then(() => wand.holdingHand.Velocity().IsFacing(wand.holdingHand.PalmDir())
                                && wand.otherHand.Velocity().IsFacing(wand.otherHand.PalmDir())
                                && wand.otherHand.Velocity().IsFacing(wand.holdingHand.Velocity(), 30)

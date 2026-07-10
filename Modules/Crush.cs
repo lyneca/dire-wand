@@ -7,8 +7,8 @@ namespace Wand;
 public class Crush : WandSkill {
     public float throwForce = 20f;
 
-    public override void OnInit() {
-        base.OnInit();
+    public override void Register() {
+        base.Register();
         wand.profane
             .Then(wand.Offhand.Palm(Direction.Backward).Point(Direction.Up).Fist)
             .And("Grip", () => wand.otherHand.Gripping() && wand.otherHand.Triggering())

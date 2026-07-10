@@ -8,8 +8,15 @@ namespace Wand;
 public class Spawn : WandSkill
 {
     public List<string> itemIDs = [
-        "Boulder",
         "Crate",
+        "StatueSphere",
+        "Barrel2",
+        "Rock_Boulder_01",
+        "StoneCitadel1",
+        "Chair1",
+        "Stool_Khartib",
+        "SmallColonne",
+        "SwordDalgarSmall",
     ];
 
     protected List<ItemData> items;
@@ -25,13 +32,15 @@ public class Spawn : WandSkill
         }
     }
 
-    public override void Init()
+    public override void Register()
     {
-        base.Init();
-        wand.button
+        base.Register();
+        var spawnState = wand.button
             .Then(Gesture.Both.Moving(Direction.Together).Palm(Direction.Together))
-            .Then(Gesture.Both.Moving(Direction.Apart).Palm(Direction.Down))
+            .Then(Gesture.Both.Moving(Direction.Apart, 1).Palm(Direction.Down))
             .Do(StartSpawn);
+        spawnState.Then(wand.Swirl(SwirlDirection.Clockwise)).Do(NextItem).ThenResetTo(spawnState);
+        spawnState.Then(wand.Swirl(SwirlDirection.CounterClockwise)).Do(PrevItem).ThenResetTo(spawnState);
     }
 
     public Item spawnedItem;
@@ -48,10 +57,12 @@ public class Spawn : WandSkill
         spawnedItem?.Despawn();
         spawnedItem = null;
         pid = null;
-        data.SpawnAsync(OnItemSpawn, TargetPosition, Quaternion.identity);
+        data.SpawnAsync(OnItemSpawn, Player.local.head.transform.position + Player.local.head.transform.forward * 5,
+            Quaternion.identity);
+        wand.ResetSwirl();
     }
 
-    public int currentIndex = 0;
+    public int currentIndex;
 
     public void PrevItem()
     {
@@ -72,17 +83,24 @@ public class Spawn : WandSkill
     private void OnItemSpawn(Item item)
     {
         spawnedItem = item;
+        spawnedItem.OnDespawnEvent += OnItemDespawn;
         pid = new PIDController(spawnedItem.physicBody.rigidBody, forceMode: ForceMode.Acceleration, maxForce: 5000)
             .Position(50, 0, 5).Rotation(50, 0, 5);
+    }
+
+    private void OnItemDespawn(EventTime eventTime)
+    {
+        if (eventTime is EventTime.OnEnd)
+        {
+            spawnedItem.OnDespawnEvent -= OnItemDespawn;
+            spawnedItem = null;
+            pid = null;
+        }
     }
 
     public void StartSpawn()
     {
         SetItem(items[currentIndex]);
-        if (wand.swirling)
-        {
-            
-        }
     }
 
     public override void OnUpdate()
@@ -92,6 +110,17 @@ public class Spawn : WandSkill
         if (spawnedItem && pid != null)
         {
             pid.Update(TargetPosition, TargetRotation);
+        }
+    }
+
+    public override void OnReset()
+    {
+        base.OnReset();
+        if (spawnedItem)
+        {
+            spawnedItem.OnDespawnEvent -= OnItemDespawn;
+            pid = null;
+            spawnedItem = null;
         }
     }
 }

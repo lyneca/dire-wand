@@ -9,8 +9,8 @@ using UnityEngine.PlayerLoop;
 namespace Wand; 
 
 public class Gather : WandSkill {
-    public override void OnInit() {
-        base.OnInit();
+    public override void Register() {
+        base.Register();
         wand.trigger
             .Then(Gesture.Both.Moving(Direction.Together))
             .Do(Collect);

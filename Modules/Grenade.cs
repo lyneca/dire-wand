@@ -8,6 +8,7 @@ using ExtensionMethods;
 using ThunderRoad;
 using ThunderRoad.Skill.Spell;
 using UnityEngine;
+using Object = UnityEngine.Object;
 
 namespace Wand; 
 
@@ -16,8 +17,8 @@ public class Grenade : WandSkill {
     protected EffectInstance spellChargeEffect;
     protected SpellCastCharge capturedSpell;
     protected SpellGrenade grenade;
-    public override void OnInit() {
-        base.OnInit();
+    public override void Register() {
+        base.Register();
         wand.trigger.Then(() => Vector3.Distance(wand.tip.position, wand.otherHand.caster.Orb.position) < 0.03f
                                 && wand.otherHand.caster.isFiring
                                 && wand.otherHand.caster.spellInstance is SpellCastGravity or SpellCastProjectile or SpellCastLightning, "Touch Spell Orb")
@@ -45,15 +46,15 @@ public class Grenade : WandSkill {
         var caster = wand.otherHand.caster;
         var spell = caster.spellInstance as SpellCastCharge;
         var effect = caster.spellInstance.GetField<EffectInstance>("chargeEffectInstance");
-        var newInstance = spell.GetField<EffectData>("chargeEffectData").Spawn(caster.Orb.position,
-            caster.Orb.rotation, caster.Orb, null, true);
+        var newInstance = spell!.chargeEffectData.Spawn(caster.Orb.position,
+            caster.Orb.rotation, caster.Orb);
         newInstance.Play();
         spell.SetField("chargeEffectInstance", newInstance);
         spell.currentCharge = 0;
         tipFollower.transform.position = caster.Orb.position;
         capturedSpell = spell;
         spellChargeEffect = effect;
-        grenade = wand.objectPool.Get().AddComponent<SpellGrenade>();
+        grenade = new GameObject().AddComponent<SpellGrenade>();
         grenade.transform.position = tipFollower.transform.position;
         effect.SetParent(grenade.transform);
         effect.SetPosition(grenade.transform.position);
@@ -98,21 +99,30 @@ public class SpellGrenade : MonoBehaviour {
             return;
         Explode(collision);
         effect.End();
-        wand.objectPool.Release(gameObject);
+        Destroy(gameObject);
     }
 
-    public void Explode(Collision collision) {
-        if (spell is SpellCastGravity gravity) {
-            GameManager.local.StartCoroutine(gravity.CallPrivate("ShockWaveCoroutine",
-                collision.GetContact(0).point,
-                collision.GetContact(0).normal, collision.collider.transform.up,
-                collision.relativeVelocity) as IEnumerator);
-        } else if (spell is SpellCastProjectile) {
-            Utils.Explosion(collision.GetContact(0).point, 40, 4, true, true, true, false, 20);
-            var explosion = wand.module.explosionEffectData
-                .Spawn(collision.GetContact(0).point, Quaternion.identity, null, null, false);
-            explosion.SetVFXProperty("Size", 4);
-            explosion.Play();
+    public void Explode(Collision collision)
+    {
+        spell.TryGetSpellModules(out List<SpellModuleBomb> modules);
+
+        for (int i = 0; i < modules.Count; i++)
+        {
+            modules[i].Explode(spell, collision.contacts[0].point,
+                new CollisionInstance { sourceCollider = collider, targetCollider = collision.collider }, null);
         }
+        
+        // if (spell is SpellCastGravity gravity) {
+        //     GameManager.local.StartCoroutine(gravity.CallPrivate("ShockWaveCoroutine",
+        //         collision.GetContact(0).point,
+        //         collision.GetContact(0).normal, collision.collider.transform.up,
+        //         collision.relativeVelocity) as IEnumerator);
+        // } else if (spell is SpellCastProjectile) {
+        //     Utils.Explosion(collision.GetContact(0).point, 40, 4, true, true, true, false, 20);
+        //     var explosion = wand.module.explosionEffectData
+        //         .Spawn(collision.GetContact(0).point, Quaternion.identity, null, null, false);
+        //     explosion.SetVFXProperty("Size", 4);
+        //     explosion.Play();
+        // }
     }
 }

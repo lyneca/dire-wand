@@ -21,7 +21,8 @@ namespace ExtensionMethods {
         Distal
     }
 
-    static class ExtensionMethods {
+    static class ExtensionMethods
+    {
         /// <summary>Get raw angular velocity of the player hand</summaryt
 
         public static int Capacity(this Holder holder) => holder.data.maxQuantity;
@@ -32,20 +33,26 @@ namespace ExtensionMethods {
         public static Vector3 LocalAngularVelocity(this RagdollHand hand)
             => hand.transform.InverseTransformDirection(hand.physicBody.angularVelocity);
 
-        public static Task<TOutput> Then<TInput, TOutput>(this Task<TInput> task, Func<TInput, TOutput> func) {
+        public static Task<TOutput> Then<TInput, TOutput>(this Task<TInput> task, Func<TInput, TOutput> func)
+        {
             return task.ContinueWith((input) => func(input.Result));
         }
 
-        public static Task Then(this Task task, Action<Task> func) { return task.ContinueWith(func); }
+        public static Task Then(this Task task, Action<Task> func)
+        {
+            return task.ContinueWith(func);
+        }
 
-        public static Task Then<TInput>(this Task<TInput> task, Action<TInput> func) {
+        public static Task Then<TInput>(this Task<TInput> task, Action<TInput> func)
+        {
             return task.ContinueWith((input) => func(input.Result));
         }
 
         /// <summary>
         /// Force this WhooshPoint to play its effect
         /// </summary>
-        public static void Play(this WhooshPoint point) {
+        public static void Play(this WhooshPoint point)
+        {
             if ((point.GetField("trigger") is WhooshPoint.Trigger trigger)
                 && trigger != WhooshPoint.Trigger.OnGrab
                 && point.GetField("effectInstance") != null)
@@ -54,7 +61,8 @@ namespace ExtensionMethods {
             Utils.SetField(point, "dampenedIntensity", 0);
         }
 
-        public static void Stop(this WhooshPoint point) {
+        public static void Stop(this WhooshPoint point)
+        {
             if ((point.GetField("trigger") is WhooshPoint.Trigger trigger)
                 && trigger != WhooshPoint.Trigger.OnGrab
                 && point.GetField("effectInstance") != null)
@@ -73,21 +81,27 @@ namespace ExtensionMethods {
             this Item item,
             Vector3 target,
             float lerpFactor,
-            Vector3? upDir = null) {
+            Vector3? upDir = null)
+        {
             Vector3 up = upDir ?? Vector3.up;
-            if (item.flyDirRef) {
+            if (item.flyDirRef)
+            {
                 item.transform.rotation = Quaternion.Slerp(
                                               item.transform.rotation * item.flyDirRef.localRotation,
                                               Quaternion.LookRotation(target, up),
                                               lerpFactor)
                                           * Quaternion.Inverse(item.flyDirRef.localRotation);
-            } else if (item.holderPoint) {
+            }
+            else if (item.holderPoint)
+            {
                 item.transform.rotation = Quaternion.Slerp(
                                               item.transform.rotation * item.holderPoint.localRotation,
                                               Quaternion.LookRotation(target, up),
                                               lerpFactor)
                                           * Quaternion.Inverse(item.holderPoint.localRotation);
-            } else {
+            }
+            else
+            {
                 Quaternion pointDir = Quaternion.LookRotation(item.transform.up, up);
                 item.transform.rotation
                     = Quaternion.Slerp(item.transform.rotation * pointDir, Quaternion.LookRotation(target, up),
@@ -105,24 +119,37 @@ namespace ExtensionMethods {
         public static Vector3 PointDir(this RagdollHand hand) => hand.PointDir;
         public static Vector3 ThumbDir(this RagdollHand hand) => hand.ThumbDir;
 
-        public static void HapticTick(this RagdollHand hand, float intensity = 1, float frequency = 10, int count = 1) {
+        public static void HapticTick(this RagdollHand hand, float intensity = 1, float frequency = 10,
+            int count = 1)
+        {
 
             PlayerControl.input.Haptic(hand.side, intensity, frequency);
-            if (count > 1) {
-                for (int i = 0; i < count - 1; i++) {
+            if (count > 1)
+            {
+                for (int i = 0; i < count - 1; i++)
+                {
                     PlayerControl.local.RunAfter(() => PlayerControl.input.Haptic(hand.side, intensity, frequency),
                         0.07f * count);
                 }
             }
         }
 
-        public static void PlayHapticClipOver(this RagdollHand hand, AnimationCurve curve, float duration) {
+        public static void PlayHapticClipOver(this RagdollHand hand, AnimationCurve curve, float duration)
+        {
             hand.StartCoroutine(HapticPlayer(hand, curve, duration));
         }
 
-        public static IEnumerator HapticPlayer(RagdollHand hand, AnimationCurve curve, float duration) {
+        public static void Poke(this Creature creature)
+        {
+            creature?.ragdoll.forcePhysic.Add("poke");
+            creature?.ragdoll.forcePhysic.Remove("poke");
+        }
+
+        public static IEnumerator HapticPlayer(RagdollHand hand, AnimationCurve curve, float duration)
+        {
             var time = Time.time;
-            while (Time.time - time < duration) {
+            while (Time.time - time < duration)
+            {
                 hand.HapticTick(curve.Evaluate((Time.time - time) / duration));
                 yield return 0;
             }
@@ -131,7 +158,8 @@ namespace ExtensionMethods {
         /// <summary>
         /// Return the minimum entry in an interator using a custom comparable function
         /// </summary>
-        public static T MinBy<T>(this IEnumerable<T> enumerable, Func<T, IComparable> comparator) {
+        public static T MinBy<T>(this IEnumerable<T> enumerable, Func<T, IComparable> comparator)
+        {
             if (!enumerable.Any())
                 return default;
             return enumerable.Aggregate((curMin, x)
@@ -150,7 +178,8 @@ namespace ExtensionMethods {
         /// <summary>
         /// Get a point above the player's hand
         /// </summary>
-        public static void ForBothColliderGroups(this CollisionInstance hit, Action<ColliderGroup> func) {
+        public static void ForBothColliderGroups(this CollisionInstance hit, Action<ColliderGroup> func)
+        {
             func(hit.targetColliderGroup);
             func(hit.sourceColliderGroup);
         }
@@ -164,10 +193,12 @@ namespace ExtensionMethods {
 
         public static float Randomize(this float input, float range) => input * Random.Range(1f - range, 1f + range);
 
-        public static float Curve(this float time, params float[] values) {
+        public static float Curve(this float time, params float[] values)
+        {
             var curve = new AnimationCurve();
             int i = 0;
-            foreach (var value in values) {
+            foreach (var value in values)
+            {
                 curve.AddKey(i / ((float)values.Length - 1), value);
                 i++;
             }
@@ -175,25 +206,31 @@ namespace ExtensionMethods {
             return curve.Evaluate(time);
         }
 
-        public static float MapOverCurve(this float time, params Tuple<float, float>[] points) {
+        public static float MapOverCurve(this float time, params Tuple<float, float>[] points)
+        {
             var curve = new AnimationCurve();
-            foreach (var point in points) {
+            foreach (var point in points)
+            {
                 curve.AddKey(new Keyframe(point.Item1, point.Item2));
             }
 
             return curve.Evaluate(time);
         }
 
-        public static float MapOverCurve(this float time, params Tuple<float, float, float, float>[] points) {
+        public static float MapOverCurve(this float time, params Tuple<float, float, float, float>[] points)
+        {
             var curve = new AnimationCurve();
-            foreach (var point in points) {
+            foreach (var point in points)
+            {
                 curve.AddKey(new Keyframe(point.Item1, point.Item2, point.Item3, point.Item4));
             }
 
             return curve.Evaluate(time);
         }
 
-        public static Vector3 BezierMap(this float time, Vector3 A, Vector3 B, Vector3 C, Vector3 D) {
+        public static Vector3 BezierMap(this float time, Vector3 A, Vector3 B,
+            Vector3 C, Vector3 D)
+        {
             var Q = Vector3.Lerp(A, B, time);
             var R = Vector3.Lerp(B, C, time);
             var S = Vector3.Lerp(C, D, time);
@@ -223,8 +260,10 @@ namespace ExtensionMethods {
 
         public static Vector3 XZ(this Vector3 vec) => new Vector3(vec.x, 0, vec.z);
 
-        public static bool Compare(this ViewDir dir, Vector3 vec, float amount) {
-            return dir.Sign() switch {
+        public static bool Compare(this ViewDir dir, Vector3 vec, float amount)
+        {
+            return dir.Sign() switch
+            {
                 1 => vec.GetAxis(dir.GetAxis()) > amount,
                 0 => vec.GetAxis(dir.GetAxis()).Abs() > amount,
                 -1 => vec.GetAxis(dir.GetAxis()) < -amount,
@@ -232,16 +271,20 @@ namespace ExtensionMethods {
             };
         }
 
-        public static int Sign(this ViewDir dir) {
-            return dir switch {
+        public static int Sign(this ViewDir dir)
+        {
+            return dir switch
+            {
                 ViewDir.Right or ViewDir.Up or ViewDir.Forward => 1,
                 ViewDir.Left or ViewDir.Down or ViewDir.Back => -1,
                 _ => 0
             };
         }
 
-        public static Axis GetAxis(this ViewDir dir) {
-            return dir switch {
+        public static Axis GetAxis(this ViewDir dir)
+        {
+            return dir switch
+            {
                 ViewDir.X or ViewDir.Left or ViewDir.Right => Axis.X,
                 ViewDir.Y or ViewDir.Up or ViewDir.Down => Axis.Y,
                 ViewDir.Z or ViewDir.Forward or ViewDir.Back => Axis.Z,
@@ -249,8 +292,10 @@ namespace ExtensionMethods {
             };
         }
 
-        public static float GetAxis(this Vector3 vec, Axis axis) {
-            return axis switch {
+        public static float GetAxis(this Vector3 vec, Axis axis)
+        {
+            return axis switch
+            {
                 Axis.X => vec.x,
                 Axis.Y => vec.y,
                 Axis.Z => vec.z,
@@ -258,8 +303,10 @@ namespace ExtensionMethods {
             };
         }
 
-        public static bool Mostly(this Vector3 vec, Axis axis) {
-            return axis switch {
+        public static bool Mostly(this Vector3 vec, Axis axis)
+        {
+            return axis switch
+            {
                 Axis.X => vec.MostlyX(),
                 Axis.Y => vec.MostlyY(),
                 Axis.Z => vec.MostlyZ(),
@@ -267,7 +314,8 @@ namespace ExtensionMethods {
             };
         }
 
-        public static bool InDirection(this Vector3 vec, ViewDir direction, float amount = 0) {
+        public static bool InDirection(this Vector3 vec, ViewDir direction, float amount = 0)
+        {
             return vec.Mostly(direction.GetAxis()) && direction.Compare(vec, amount);
         }
 
@@ -285,13 +333,15 @@ namespace ExtensionMethods {
         /// Returns true if the vector's Z component is its largest component
         /// </summary>
         public static bool MostlyZ(this Vector3 vec) => vec.z.Abs() > vec.x.Abs() && vec.z.Abs() > vec.y.Abs();
-        
 
-        public static string Join(this string delimiter, IEnumerable<object> strings) {
+
+        public static string Join(this string delimiter, IEnumerable<object> strings)
+        {
             return string.Join(delimiter, strings.Where(str => str != null).ToList());
         }
 
-        public static string Join(this string delimiter, params object[] strings) {
+        public static string Join(this string delimiter, params object[] strings)
+        {
             return string.Join(delimiter, strings.Where(str => str != null).ToList());
         }
 
@@ -314,55 +364,71 @@ namespace ExtensionMethods {
         public static Vector3 GetChest(this Creature creature) => Vector3.Lerp(creature.GetTorso().transform.position,
             creature.GetHead().transform.position, 0.5f);
 
-        public static float HandVelocityInLocalDirection(this RagdollHand hand, Vector3 direction) {
+        public static float HandVelocityInLocalDirection(this RagdollHand hand, Vector3 direction)
+        {
             return Vector3.Dot(hand.Velocity(), hand.transform.TransformDirection(direction));
         }
 
-        public static float HandVelocityInDirection(this RagdollHand hand, Vector3 direction) {
+        public static float HandVelocityInDirection(this RagdollHand hand, Vector3 direction)
+        {
             return Vector3.Dot(hand.Velocity(), direction);
         }
 
-        public static Vector3 Rotated(this Vector3 vector, Quaternion rotation, Vector3 pivot = default) {
+        public static Vector3 Rotated(this Vector3 vector, Quaternion rotation, Vector3 pivot = default)
+        {
             return rotation * (vector - pivot) + pivot;
         }
 
-        public static Vector3 Rotated(this Vector3 vector, Vector3 rotation, Vector3 pivot = default) {
+        public static Vector3 Rotated(this Vector3 vector, Vector3 rotation, Vector3 pivot = default)
+        {
             return Rotated(vector, Quaternion.Euler(rotation), pivot);
         }
 
-        public static Vector3 Rotated(this Vector3 vector, float x, float y, float z, Vector3 pivot = default) {
+        public static Vector3 Rotated(this Vector3 vector, float x, float y,
+            float z, Vector3 pivot = default)
+        {
             return Rotated(vector, Quaternion.Euler(x, y, z), pivot);
         }
 
         public static bool IsFacing(this Vector3 source, Vector3 other, float angle = 50)
             => Vector3.Angle(source, other) < angle;
 
-        public static void SetPosition(this EffectInstance instance, Vector3 position) {
+        public static void SetPosition(this EffectInstance instance, Vector3 position)
+        {
             instance.effects.ForEach(effect => effect.transform.position = position);
         }
 
-        public static void SetRotation(this EffectInstance instance, Quaternion rotation) {
+        public static void SetRotation(this EffectInstance instance, Quaternion rotation)
+        {
             instance.effects.ForEach(effect => effect.transform.rotation = rotation);
         }
 
-        public static void SetScale(this EffectInstance instance, Vector3 scale) {
-            foreach (var effect in instance.effects) {
-                if (effect is EffectMesh mesh) {
+        public static void SetScale(this EffectInstance instance, Vector3 scale)
+        {
+            foreach (var effect in instance.effects)
+            {
+                if (effect is EffectMesh mesh)
+                {
                     mesh.transform.localScale = scale;
                     mesh.meshSize = scale;
                 }
             }
         }
 
-        public static float Distance(this NavMeshPath path) {
+        public static float Distance(this NavMeshPath path)
+        {
             Vector3 lastPos = default;
             bool started = false;
             float distance = 0;
-            foreach (var corner in path.corners) {
-                if (!started) {
+            foreach (var corner in path.corners)
+            {
+                if (!started)
+                {
                     lastPos = corner;
                     started = true;
-                } else {
+                }
+                else
+                {
                     distance += Vector3.Distance(corner, lastPos);
                     lastPos = corner;
                 }
@@ -371,10 +437,12 @@ namespace ExtensionMethods {
             return distance;
         }
 
-        public static Vector3 Lerp(this NavMeshPath path, float t, int stepsAway = 0) {
+        public static Vector3 Lerp(this NavMeshPath path, float t, int stepsAway = 0)
+        {
             float amount = path.Distance() * t;
             float travelled = 0;
-            switch (path.corners.Length - stepsAway) {
+            switch (path.corners.Length - stepsAway)
+            {
                 case 0:
                     return Vector3.zero;
                 case 1:
@@ -383,12 +451,16 @@ namespace ExtensionMethods {
                     return Vector3.Lerp(path.corners[0], path.corners[1], t);
             }
 
-            for (int i = 0; i < path.corners.Length - (1 + stepsAway); i++) {
+            for (int i = 0; i < path.corners.Length - (1 + stepsAway); i++)
+            {
                 float distance = Vector3.Distance(path.corners[i], path.corners[i + 1]);
-                if (distance + travelled > amount) {
+                if (distance + travelled > amount)
+                {
                     return Vector3.Lerp(path.corners[i], path.corners[i + 1],
                         Mathf.InverseLerp(0, distance, amount - travelled));
-                } else {
+                }
+                else
+                {
                     travelled += distance;
                 }
             }
@@ -402,48 +474,59 @@ namespace ExtensionMethods {
             bool pooled = true,
             ColliderGroup colliderGroup = null,
             bool fromPlayer = false,
-            params Type[] ignoredEffectModules) {
+            params Type[] ignoredEffectModules)
+        {
             return data.Spawn(parent, null, pooled, colliderGroup, fromPlayer);
         }
 
-        public static Coroutine RunCoroutine(this MonoBehaviour mono, Func<IEnumerator> function, float delay = 0) {
-            if (mono.isActiveAndEnabled) {
+        public static Coroutine RunCoroutine(this MonoBehaviour mono, Func<IEnumerator> function, float delay = 0)
+        {
+            if (mono.isActiveAndEnabled)
+            {
                 return mono.StartCoroutine(RunAfterCoroutine(function, delay));
             }
 
             return null;
         }
 
-        public static Coroutine RunNextFrame(this MonoBehaviour mono, System.Action action) {
-            if (mono.isActiveAndEnabled) {
+        public static Coroutine RunNextFrame(this MonoBehaviour mono, System.Action action)
+        {
+            if (mono.isActiveAndEnabled)
+            {
                 return mono.StartCoroutine(RunNextFrameCoroutine(action));
             }
 
             return null;
         }
 
-        public static IEnumerator RunAfterCoroutine(Func<IEnumerator> function, float delay) {
+        public static IEnumerator RunAfterCoroutine(Func<IEnumerator> function, float delay)
+        {
             yield return new WaitForSeconds(delay);
             yield return function();
         }
 
-        public static IEnumerator RunAfterCoroutine(System.Action action, float delay) {
+        public static IEnumerator RunAfterCoroutine(System.Action action, float delay)
+        {
             yield return new WaitForSeconds(delay);
             action();
         }
 
-        public static IEnumerator RunNextFrameCoroutine(System.Action action) {
+        public static IEnumerator RunNextFrameCoroutine(System.Action action)
+        {
             yield return 0;
             action();
         }
 
-        public static GameObject AddComponents<T>(this GameObject obj, Action<T> callback) where T : Component {
+        public static GameObject AddComponents<T>(this GameObject obj, Action<T> callback) where T : Component
+        {
             callback(obj.AddComponent<T>());
             return obj;
         }
 
-        public static Transform GetFingerPart(this RagdollHand.Finger finger, FingerPart part) {
-            switch (part) {
+        public static Transform GetFingerPart(this RagdollHand.Finger finger, FingerPart part)
+        {
+            switch (part)
+            {
                 case FingerPart.Proximal:
                     return finger.proximal.collider.transform;
                 case FingerPart.Intermediate:
@@ -455,9 +538,11 @@ namespace ExtensionMethods {
             return null;
         }
 
-        public static object Call(this object o, string methodName, params object[] args) {
+        public static object Call(this object o, string methodName, params object[] args)
+        {
             var mi = o.GetType().GetMethod(methodName, BindingFlags.Instance);
-            if (mi != null) {
+            if (mi != null)
+            {
                 return mi.Invoke(o, args);
             }
 
@@ -465,16 +550,19 @@ namespace ExtensionMethods {
         }
 
         // This method is ILLEGAL
-        public static object CallPrivate(this object o, string methodName, params object[] args) {
+        public static object CallPrivate(this object o, string methodName, params object[] args)
+        {
             var mi = o.GetType().GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Instance);
-            if (mi != null) {
+            if (mi != null)
+            {
                 return mi.Invoke(o, args);
             }
 
             return null;
         }
 
-        public static object GetField(this object instance, string fieldName) {
+        public static object GetField(this object instance, string fieldName)
+        {
             if (instance == null) return null;
             BindingFlags bindFlags = BindingFlags.Instance
                                      | BindingFlags.Public
@@ -484,7 +572,8 @@ namespace ExtensionMethods {
             return field.GetValue(instance);
         }
 
-        public static T GetField<T>(this object instance, string fieldName) {
+        public static T GetField<T>(this object instance, string fieldName)
+        {
             if (instance == null) return default;
             BindingFlags bindFlags = BindingFlags.Instance
                                      | BindingFlags.Public
@@ -494,7 +583,8 @@ namespace ExtensionMethods {
             return (T)field.GetValue(instance);
         }
 
-        public static void SetSpring(this ConfigurableJoint joint, float spring) {
+        public static void SetSpring(this ConfigurableJoint joint, float spring)
+        {
             var xDrive = joint.xDrive;
             xDrive.positionSpring = spring;
             joint.xDrive = xDrive;
@@ -506,7 +596,8 @@ namespace ExtensionMethods {
             joint.zDrive = zDrive;
         }
 
-        public static void SetDamping(this ConfigurableJoint joint, float damper) {
+        public static void SetDamping(this ConfigurableJoint joint, float damper)
+        {
             var xDrive = joint.xDrive;
             xDrive.positionDamper = damper;
             joint.xDrive = xDrive;
@@ -518,23 +609,32 @@ namespace ExtensionMethods {
             joint.zDrive = zDrive;
         }
 
-        public static float GetMassModifier(this Rigidbody rb) {
-            if (rb.mass < 1) {
+        public static float GetMassModifier(this Rigidbody rb)
+        {
+            if (rb.mass < 1)
+            {
                 return rb.mass * 3;
-            } else {
+            }
+            else
+            {
                 return rb.mass;
             }
         }
 
-        public static float GetMassModifier(this Item item) {
-            if (item.physicBody.mass < 1) {
+        public static float GetMassModifier(this Item item)
+        {
+            if (item.physicBody.mass < 1)
+            {
                 return item.physicBody.mass * 3;
-            } else {
+            }
+            else
+            {
                 return item.physicBody.mass;
             }
         }
 
-        public static Item UnSnapOne(this Holder holder, bool silent) {
+        public static Item UnSnapOne(this Holder holder, bool silent)
+        {
             Item obj = holder.items.LastOrDefault();
             if (obj)
                 holder.UnSnap(obj, silent);
@@ -550,10 +650,12 @@ namespace ExtensionMethods {
         //    return Quaternion.Inverse(localRotation) * filter.mesh.bounds.extents * filter.transform.localScale;
         //}
 
-        public static Vector3 GetScaleRelativeTo(this Transform transform, Transform target) {
+        public static Vector3 GetScaleRelativeTo(this Transform transform, Transform target)
+        {
             Vector3 output = Vector3.one;
             var parent = transform;
-            while (parent.parent != target && parent.parent != null) {
+            while (parent.parent != target && parent.parent != null)
+            {
                 output = output.MultiplyComponents(parent.localScale);
                 parent = parent.parent;
             }
@@ -567,23 +669,29 @@ namespace ExtensionMethods {
 
         public static float GetRadius(this Item item) => (item?.renderers?.Any() == true)
             ? item.renderers
-                .Select(renderer => renderer.gameObject.GetComponent<MeshFilter>()).Max(meshFilter
-                    => meshFilter.transform.GetScaleRelativeTo(item.transform).MultiplyComponents(
-                            meshFilter.transform.position - item.transform.position + meshFilter.mesh.bounds.extents)
-                        .magnitude).Clamp(0, 1f)
+                .Select(renderer => renderer.gameObject.GetComponent<MeshFilter>()).Max(meshFilter => meshFilter
+                    .transform.GetScaleRelativeTo(item.transform).MultiplyComponents(
+                        meshFilter.transform.position - item.transform.position + meshFilter.mesh.bounds.extents)
+                    .magnitude).Clamp(0, 1f)
             : 0.5f;
 
-        public static void Depenetrate(this Item item) {
-            foreach (var handler in item.collisionHandlers) {
-                foreach (var damager in handler.damagers) {
+        public static void Depenetrate(this Item item)
+        {
+            foreach (var handler in item.collisionHandlers)
+            {
+                foreach (var damager in handler.damagers)
+                {
                     damager.UnPenetrateAll();
                 }
             }
         }
 
-        public static object GetVFXProperty(this EffectInstance effect, string name) {
-            foreach (var fx in effect.effects) {
-                if (fx is EffectVfx vfx) {
+        public static object GetVFXProperty(this EffectInstance effect, string name)
+        {
+            foreach (var fx in effect.effects)
+            {
+                if (fx is EffectVfx vfx)
+                {
                     if (vfx.vfx.HasFloat(name)) return vfx.vfx.GetFloat(name);
                     if (vfx.vfx.HasVector3(name)) return vfx.vfx.GetVector3(name);
                     if (vfx.vfx.HasBool(name)) return vfx.vfx.GetBool(name);
@@ -594,26 +702,41 @@ namespace ExtensionMethods {
             return null;
         }
 
-        public static void SetVFXProperty<T>(this EffectInstance effect, string name, T data) {
+        public static void SetVFXProperty<T>(this EffectInstance effect, string name, T data)
+        {
             if (effect == null) return;
-            if (data is Vector3 vec3) {
-                foreach (EffectVfx fx in effect.effects.Where(fx => fx is EffectVfx vfx && vfx.vfx.HasVector3(name))) {
+            if (data is Vector3 vec3)
+            {
+                foreach (EffectVfx fx in effect.effects.Where(fx => fx is EffectVfx vfx && vfx.vfx.HasVector3(name)))
+                {
                     fx.vfx.SetVector3(name, vec3);
                 }
-            } else if (data is float flt) {
-                foreach (EffectVfx fx in effect.effects.Where(fx => fx is EffectVfx vfx && vfx.vfx.HasFloat(name))) {
+            }
+            else if (data is float flt)
+            {
+                foreach (EffectVfx fx in effect.effects.Where(fx => fx is EffectVfx vfx && vfx.vfx.HasFloat(name)))
+                {
                     fx.vfx.SetFloat(name, flt);
                 }
-            } else if (data is int integer) {
-                foreach (EffectVfx fx in effect.effects.Where(fx => fx is EffectVfx vfx && vfx.vfx.HasInt(name))) {
+            }
+            else if (data is int integer)
+            {
+                foreach (EffectVfx fx in effect.effects.Where(fx => fx is EffectVfx vfx && vfx.vfx.HasInt(name)))
+                {
                     fx.vfx.SetInt(name, integer);
                 }
-            } else if (data is bool boolean) {
-                foreach (EffectVfx fx in effect.effects.Where(fx => fx is EffectVfx vfx && vfx.vfx.HasBool(name))) {
+            }
+            else if (data is bool boolean)
+            {
+                foreach (EffectVfx fx in effect.effects.Where(fx => fx is EffectVfx vfx && vfx.vfx.HasBool(name)))
+                {
                     fx.vfx.SetBool(name, boolean);
                 }
-            } else if (data is Texture texture) {
-                foreach (EffectVfx fx in effect.effects.Where(fx => fx is EffectVfx vfx && vfx.vfx.HasTexture(name))) {
+            }
+            else if (data is Texture texture)
+            {
+                foreach (EffectVfx fx in effect.effects.Where(fx => fx is EffectVfx vfx && vfx.vfx.HasTexture(name)))
+                {
                     fx.vfx.SetTexture(name, texture);
                 }
             }
@@ -621,22 +744,6 @@ namespace ExtensionMethods {
 
         public static Quaternion GetFlyDirRefLocalRotation(this Item item)
             => Quaternion.Inverse(item.transform.rotation) * item.flyDirRef.rotation;
-
-        public static void AddModifier(
-            this Rigidbody rb,
-            object handler,
-            int priority,
-            float? gravity = null,
-            float? drag = null,
-            float? mass = null) {
-            rb.gameObject.GetOrAddComponent<RigidbodyModifier>().AddModifier(handler, priority, gravity, drag, mass);
-        }
-
-        public static void RemoveModifier(
-            this Rigidbody rb,
-            object handler) {
-            rb.gameObject.GetOrAddComponent<RigidbodyModifier>().RemoveModifier(handler);
-        }
 
         public static string ListString<T>(this IEnumerable<T> list)
             => string.Join(", ", list.Select(e => e.ToString()));
@@ -655,26 +762,31 @@ namespace ExtensionMethods {
                              .Intersect(handlers).Count()
                          ?? 1, 1);
 
-        public static void IgnoreCollider(this Ragdoll ragdoll, Collider collider, bool ignore = true) {
-            foreach (var part in ragdoll.parts) {
+        public static void IgnoreCollider(this Ragdoll ragdoll, Collider collider, bool ignore = true)
+        {
+            foreach (var part in ragdoll.parts)
+            {
                 part.IgnoreCollider(collider, ignore);
             }
         }
 
-        public static void SliceAll(this Ragdoll ragdoll, float forceAway = 0) {
+        public static void SliceAll(this Ragdoll ragdoll, float forceAway = 0)
+        {
             ragdoll.headPart.parentPart.TrySlice();
             ragdoll.headPart.physicBody.AddForce(
                 (ragdoll.headPart.transform.position - ragdoll.rootPart.transform.position).normalized * forceAway,
                 ForceMode.VelocityChange);
 
-            var parts = new List<RagdollPart> {
+            var parts = new List<RagdollPart>
+            {
                 ragdoll.creature.handLeft.upperArmPart,
                 ragdoll.creature.handRight.upperArmPart,
                 ragdoll.creature.footLeft.parentPart.parentPart,
                 ragdoll.creature.footRight.parentPart.parentPart
             };
 
-            foreach (var part in parts) {
+            foreach (var part in parts)
+            {
                 part.TrySlice();
                 part.physicBody.AddForce(
                     (part.transform.position - ragdoll.rootPart.transform.position).normalized * forceAway,
@@ -682,17 +794,22 @@ namespace ExtensionMethods {
             }
         }
 
-        public static void IgnoreCollider(this RagdollPart part, Collider collider, bool ignore = true) {
-            foreach (var itemCollider in part.colliderGroup.colliders) {
+        public static void IgnoreCollider(this RagdollPart part, Collider collider, bool ignore = true)
+        {
+            foreach (var itemCollider in part.colliderGroup.colliders)
+            {
                 Physics.IgnoreCollision(collider, itemCollider, ignore);
             }
         }
 
         public static bool Active(this Creature creature) => !creature.isKilled && !creature.isCulled;
 
-        public static void IgnoreCollider(this Item item, Collider collider, bool ignore = true) {
-            foreach (var cg in item.colliderGroups) {
-                foreach (var itemCollider in cg.colliders) {
+        public static void IgnoreCollider(this Item item, Collider collider, bool ignore = true)
+        {
+            foreach (var cg in item.colliderGroups)
+            {
+                foreach (var itemCollider in cg.colliders)
+                {
                     Physics.IgnoreCollision(collider, itemCollider, ignore);
                 }
             }
@@ -703,10 +820,13 @@ namespace ExtensionMethods {
                                                    && !item.isGripped
                                                    && !item.isTelekinesisGrabbed;
 
-        public static void SafeDespawn(this Item item, float delay) {
-            item.RunAfter(() => {
+        public static void SafeDespawn(this Item item, float delay)
+        {
+            item.RunAfter(() =>
+            {
                 item.handlers.ToList().ForEach(handler => handler.UnGrab(false));
-                item.handles.ToList().ForEach(handle => {
+                item.handles.ToList().ForEach(handle =>
+                {
                     handle.SetTouch(false);
                     handle.SetTelekinesis(false);
                 });
@@ -714,14 +834,16 @@ namespace ExtensionMethods {
             }, delay);
         }
 
-        public static IEnumerable<string> Chop(this string str, int chunkSize) {
+        public static IEnumerable<string> Chop(this string str, int chunkSize)
+        {
             for (int i = 0; i < str.Length; i += chunkSize)
                 yield return str.Substring(i, chunkSize);
         }
 
         public static bool IsPlayer(this RagdollPart part) => part?.ragdoll?.creature.isPlayer == true;
 
-        public static bool IsImportant(this RagdollPart part) {
+        public static bool IsImportant(this RagdollPart part)
+        {
             var type = part.type;
             return type == RagdollPart.Type.Head
                    || type == RagdollPart.Type.Torso
@@ -731,39 +853,55 @@ namespace ExtensionMethods {
                    || type == RagdollPart.Type.RightFoot;
         }
 
-        public static T Clone<T>(this T obj) {
+        public static T Clone<T>(this T obj)
+        {
             var inst = obj
                 .GetType()
                 .GetMethod("MemberwiseClone", BindingFlags.Instance | BindingFlags.NonPublic);
             return (T)inst?.Invoke(obj, null);
         }
-     public static void OnNextCollision(this ThunderEntity entity, Action<CollisionInstance> action, float timeout = Mathf.Infinity) {
-         float startTime = Time.time;
-         void OnCollision(CollisionInstance collision)
-         {
-             if (Time.time - startTime < timeout)
-                 action(collision);
-             switch (entity)
-             {
-                 case Creature creature:
-                     creature.ragdoll.rootPart.collisionHandler.OnCollisionStartEvent -= OnCollision;
-                     break;
-                 case Item item:
-                     item.mainCollisionHandler.OnCollisionStartEvent -= OnCollision;
-                     break;
-             }
-         }
-         switch (entity)
-         {
-             case Creature creature:
-                 creature.ragdoll.rootPart.collisionHandler.OnCollisionStartEvent += OnCollision;
-                 break;
-             case Item item:
-                 item.mainCollisionHandler.OnCollisionStartEvent += OnCollision;
-                 break;
-         }
-     }
-        
+
+        public static void OnNextCollision(this ThunderEntity entity, Action<CollisionInstance> action, out Action cancel)
+        {
+            void OnRagdollCollision(CollisionInstance collision, RagdollPart part)
+            {
+                if (collision.targetColliderGroup?.collisionHandler?.Entity == entity) return;
+                action(collision);
+                (entity as Creature)!.ragdoll.OnContactStartEvent -= OnRagdollCollision;
+            }
+
+            void OnItemCollision(CollisionInstance collision)
+            {
+                if (collision.targetColliderGroup?.collisionHandler?.Entity == entity) return;
+                action(collision);
+                (entity as Item)!.mainCollisionHandler.OnCollisionStartEvent -= OnItemCollision;
+            }
+
+            void Cancel()
+            {
+                switch (entity)
+                {
+                    case Creature creature:
+                        creature.ragdoll.OnContactStartEvent -= OnRagdollCollision;
+                        break;
+                    case Item item:
+                        item.mainCollisionHandler.OnCollisionStartEvent -= OnItemCollision;
+                        break;
+                }
+            }
+
+            cancel = Cancel;
+
+            switch (entity)
+            {
+                case Creature creature:
+                    creature.ragdoll.OnContactStartEvent += OnRagdollCollision;
+                    break;
+                case Item item:
+                    item.mainCollisionHandler.OnCollisionStartEvent += OnItemCollision;
+                    break;
+            }
+        }
     }
 
     public static class Hands {
@@ -854,8 +992,16 @@ namespace ExtensionMethods {
         public static bool Any(this RagdollHand hand, params Func<RagdollHand, bool>[] preds) => preds.Any(pred => pred(hand));
         public static RagdollHand Right => Player.currentCreature.handRight;
         public static RagdollHand Left => Player.currentCreature.handLeft;
-        public static bool FacingPos(this RagdollHand hand, Vector3 position, float angle = 50) => hand.FacingDir(position - hand.Palm(), angle);
-        public static bool FacingDir(this RagdollHand hand, Vector3 direction, float angle = 50) => hand.PalmDir().IsFacing(direction, angle);
+
+        public static bool MovingTowards(this RagdollHand hand, Vector3 position, float angle = 50, float minVelocity = 2)
+            => hand.Velocity().IsFacing(position - hand.Palm(), angle) && hand.Velocity().sqrMagnitude > minVelocity * minVelocity;
+        public static bool MovingAwayFrom(this RagdollHand hand, Vector3 position, float angle = 50, float minVelocity = 2)
+            => hand.Velocity().IsFacing(position - hand.Palm(), angle) && hand.Velocity().sqrMagnitude > minVelocity * minVelocity;
+        public static bool FacingPos(this RagdollHand hand, Vector3 position, float angle = 50,
+            bool away = false) => hand.FacingDir(away ? hand.Palm() - position : position - hand.Palm(), angle);
+
+        public static bool FacingDir(this RagdollHand hand, Vector3 direction, float angle = 50,
+            bool away = false) => hand.PalmDir().IsFacing(direction * (away ? -1 : 1), angle);
     }
 }
 
@@ -929,7 +1075,7 @@ public static class Utils {
     }
     public static bool FindRoof(Vector3 position, float distance, out Vector3 roof) {
         if (Physics.Raycast(position, Vector3.up, out var hit, distance, GetMask(LayerName.Default, LayerName.None, LayerName.LocomotionOnly),
-            QueryTriggerInteraction.Ignore)) {
+                QueryTriggerInteraction.Ignore)) {
             roof = hit.point;
             return true;
         }
@@ -938,7 +1084,7 @@ public static class Utils {
     }
     public static bool FindFloor(Vector3 position, float distance, out Vector3 floor) {
         if (Physics.Raycast(position, -Vector3.up, out var hit, distance, GetMask(LayerName.Default, LayerName.None, LayerName.LocomotionOnly),
-            QueryTriggerInteraction.Ignore)) {
+                QueryTriggerInteraction.Ignore)) {
             floor = hit.point;
             return true;
         }
@@ -1135,8 +1281,8 @@ public static class Utils {
             if (collider.attachedRigidbody == null)
                 continue;
             if (collider.attachedRigidbody.gameObject.layer == GameManager.GetLayer(LayerName.PlayerHandAndFoot) ||
-               collider.attachedRigidbody.gameObject.layer == GameManager.GetLayer(LayerName.PlayerLocomotion) ||
-               collider.attachedRigidbody.gameObject.layer == GameManager.GetLayer(LayerName.PlayerLocomotionObject))
+                collider.attachedRigidbody.gameObject.layer == GameManager.GetLayer(LayerName.PlayerLocomotion) ||
+                collider.attachedRigidbody.gameObject.layer == GameManager.GetLayer(LayerName.PlayerLocomotionObject))
                 continue;
             if (!seenRigidbodies.Contains(collider.attachedRigidbody) && collider.attachedRigidbody.gameObject.layer != GameManager.GetLayer(LayerName.NPC)) {
                 seenRigidbodies.Add(collider.attachedRigidbody);
@@ -1182,8 +1328,8 @@ public static class Utils {
 
                 if (dismemberIfKill && creature.isKilled) {
                     foreach (var ragdollPart in creature.ragdoll.parts
-                        .Where(thisPart => thisPart.sliceAllowed)
-                        .OrderBy(thisPart => Random.Range(0f, 1f)).Take(Random.Range(0, 2))) {
+                                 .Where(thisPart => thisPart.sliceAllowed)
+                                 .OrderBy(thisPart => Random.Range(0f, 1f)).Take(Random.Range(0, 2))) {
                         ragdollPart.TrySlice();
                     }
                 }
@@ -1206,8 +1352,8 @@ public static class Utils {
             if (collider.attachedRigidbody == null)
                 continue;
             if (collider.attachedRigidbody.gameObject.layer == GameManager.GetLayer(LayerName.PlayerHandAndFoot) ||
-               collider.attachedRigidbody.gameObject.layer == GameManager.GetLayer(LayerName.PlayerLocomotion) ||
-               collider.attachedRigidbody.gameObject.layer == GameManager.GetLayer(LayerName.PlayerLocomotionObject))
+                collider.attachedRigidbody.gameObject.layer == GameManager.GetLayer(LayerName.PlayerLocomotion) ||
+                collider.attachedRigidbody.gameObject.layer == GameManager.GetLayer(LayerName.PlayerLocomotionObject))
                 continue;
             if (!seenRigidbodies.Contains(collider.attachedRigidbody)) {
                 seenRigidbodies.Add(collider.attachedRigidbody);
@@ -1236,7 +1382,7 @@ public static class Utils {
         var targets = hits.SelectNotNull(hit => hit.collider?.attachedRigidbody?.GetComponentInParent<Creature>())
             .Where(creature => creature != ignoredCreature && creature != Player.currentCreature && creature.state != Creature.State.Dead)
             .Where(creature => Vector3.Angle(velocity, creature.ragdoll.headPart.transform.position - rigidbody.transform.position)
-                 < homingAngle + 3 * Vector3.Distance(rigidbody.transform.position, Player.currentCreature.transform.position))
+                               < homingAngle + 3 * Vector3.Distance(rigidbody.transform.position, Player.currentCreature.transform.position))
             .OrderBy(creature => Vector3.Angle(velocity, creature.ragdoll.headPart.transform.position - rigidbody.transform.position));
         var closeToAngle = targets.Where(creature => Vector3.Angle(velocity, creature.ragdoll.headPart.transform.position - rigidbody.transform.position) < 5);
         if (closeToAngle.Any()) {
@@ -1321,9 +1467,16 @@ public static class Utils {
     /// Set a private field from an object
     /// </summary>
     public static void SetField<T, U>(this T instance, string fieldName, U value) {
-        BindingFlags bindFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic
-            | BindingFlags.Static;
-        FieldInfo field = instance.GetType().GetField(fieldName, bindFlags);
+        const BindingFlags bindFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic
+                                       | BindingFlags.Static;
+        var field = instance.GetType().GetField(fieldName, bindFlags);
+        if (field == null)
+        {
+            Debug.LogError(
+                $"Warning: SetField<{typeof(T)}> on instance {instance} could not find field named '{fieldName}' to set to {value}.");
+            return;
+        }
+
         field.SetValue(instance, value);
     }
 
@@ -1332,7 +1485,7 @@ public static class Utils {
     /// </summary>
     public static IEnumerable<Creature> GetAliveNPCs() => Creature.allActive
         .Where(creature => creature != Player.currentCreature
-                        && creature.state != Creature.State.Dead);
+                           && creature.state != Creature.State.Dead);
 
     public static IEnumerable<Item> AllItemsInRadius(Vector3 position, float radius, bool free = false) => Item.allActive.Where(item
         => (position - item.physicBody.rigidBody.ClosestPointOnBounds(position)).sqrMagnitude < radius.Pow(2) && (!free || item.Free()));
@@ -1453,7 +1606,7 @@ public static class Utils {
         outHandler = null;
         outHit = default;
         foreach (var hit in Physics.SphereCastAll(ray, 5, distance,
-            LayerMask.GetMask("Default", "BodyLocomotion", "MovingItem", "DroppedItem"), QueryTriggerInteraction.Ignore)) {
+                     LayerMask.GetMask("Default", "BodyLocomotion", "MovingItem", "DroppedItem"), QueryTriggerInteraction.Ignore)) {
             if (hit.rigidbody?.GetComponent<CollisionHandler>() is CollisionHandler handler) {
                 if (handler.ragdollPart is RagdollPart part) {
                     if (part.ragdoll.creature.isCulled
@@ -1494,7 +1647,7 @@ public static class Utils {
                     || item.holder != null)
                 || item == target) continue;
             var toItem = item.physicBody.worldCenterOfMass
-                             - ray.origin;
+                         - ray.origin;
             var itemDistance = toItem.sqrMagnitude;
 
             if (itemDistance < sqrDistance) {
@@ -1715,110 +1868,6 @@ public class CreatureModifier : MonoBehaviour {
     public virtual void OnApply() { }
 }
 
-class RigidbodyModifier : MonoBehaviour {
-    struct Modifier {
-        public int priority;
-        public float? gravity;
-        public float? drag;
-        public float? mass;
-
-        public Modifier(int priority, float? gravity = null, float? drag = null, float? mass = null) {
-            this.priority = priority;
-            this.gravity = gravity;
-            this.drag = drag;
-            this.mass = mass;
-        }
-    }
-
-    private Dictionary<object, Modifier> modifiers = new Dictionary<object, Modifier>();
-    private Rigidbody rb;
-    private float orgDrag;
-    private float orgAngularDrag;
-    private float orgMass;
-    private float orgColliderHeight;
-
-    public void Awake() {
-        rb = GetComponent<Rigidbody>();
-        if (rb.GetComponent<Locomotion>() is Locomotion loco) orgColliderHeight = loco.capsuleCollider.height;
-        if (rb.GetComponent<CollisionHandler>()?.item?.data is ItemData data) {
-            orgDrag = data.drag;
-            orgAngularDrag = data.angularDrag;
-            orgMass = data.mass;
-        } else if (rb.GetComponent<CollisionHandler>()?.ragdollPart is RagdollPart part) {
-            orgDrag = rb.drag;
-            orgAngularDrag = rb.angularDrag;
-            orgMass = rb.mass;
-            part.ragdoll.creature.OnDespawnEvent += time => {
-                if (time == EventTime.OnStart) Clear();
-            };
-        } else {
-            orgDrag = rb.drag;
-            orgAngularDrag = rb.angularDrag;
-            orgMass = rb.mass;
-        }
-    }
-    
-    public void Clear() {
-        modifiers.Clear();
-        Update();
-        Destroy(this);
-    }
-
-    public void AddModifier(
-        object handler,
-        int priority,
-        float? gravity = null,
-        float? drag = null,
-        float? mass = null) {
-        modifiers[handler] = new Modifier(priority, gravity, drag, mass);
-    }
-
-    public void RemoveModifier(object handler) {
-        modifiers.Remove(handler);
-        if (rb == null) return;
-        if (!modifiers.Where(mod => mod.Value.gravity != null).Any()) {
-            rb.useGravity = true;
-            rb.GetComponent<CollisionHandler>()?.RefreshPhysicModifiers();
-            if (rb.GetComponent<Locomotion>() is Locomotion loco) loco.capsuleCollider.height = orgColliderHeight;
-        }
-
-        if (!modifiers.Where(mod => mod.Value.drag != null).Any()) {
-            rb.drag = orgDrag;
-            rb.angularDrag = orgAngularDrag;
-        }
-
-        if (!modifiers.Where(mod => mod.Value.mass != null).Any()) {
-            rb.mass = orgMass;
-        }
-    }
-
-    public void Update() {
-        if (!rb) return;
-        int lastGravPriority = int.MinValue;
-        int lastDragPriority = int.MinValue;
-        int lastMassPriority = int.MinValue;
-        foreach (var modifier in modifiers.Values) {
-            if (modifier.gravity is float gravity && modifier.priority > lastGravPriority) {
-                lastGravPriority = modifier.priority;
-                rb.useGravity = false;
-                if (rb.GetComponent<Locomotion>() is Locomotion loco) loco.capsuleCollider.height = 0.9f;
-                rb.AddForce(Physics.gravity * gravity);
-            }
-
-            if (modifier.drag is float drag && modifier.priority > lastDragPriority) {
-                lastDragPriority = modifier.priority;
-                rb.drag = (orgDrag == 0 ? 1 : orgDrag) * drag;
-                rb.angularDrag = (orgAngularDrag == 0 ? 1 : orgAngularDrag) * drag;
-            }
-
-            if (modifier.mass is float mass && modifier.priority > lastMassPriority) {
-                lastMassPriority = modifier.priority;
-                rb.mass = (orgMass == 0 ? 1 : orgMass) * mass;
-            }
-        }
-    }
-}
-
 public enum Axis {
     X, Y, Z
 }
@@ -1842,7 +1891,7 @@ public enum EventStep {
     Exit
 }
 
-public class Zone : MonoBehaviour {
+public class CustomZone : MonoBehaviour {
     public float distance;
     public float radius;
     public CapsuleCollider collider;
@@ -1886,12 +1935,12 @@ public class Zone : MonoBehaviour {
     public void OnTriggerEnter(Collider collider) {
         var handler = collider.attachedRigidbody?.GetComponent<CollisionHandler>();
         if (!handler || collider.attachedRigidbody.isKinematic) return;
-            if (!handlers.Contains(handler)) {
-                handlers.Add(handler);
-        if (handler.ragdollPart?.ragdoll.creature.isPlayer != true) {
+        if (!handlers.Contains(handler)) {
+            handlers.Add(handler);
+            if (handler.ragdollPart?.ragdoll.creature.isPlayer != true) {
                 OnHandlerEvent(handler, EventStep.Enter);
-        }
             }
+        }
 
         if (handler.item is Item item) {
             if (!items.Contains(item)) {

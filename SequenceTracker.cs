@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Xml.Serialization.Configuration;
 using ExtensionMethods;
 using UnityEngine;
 
@@ -25,7 +26,7 @@ using NamedCondition = Tuple<string, Func<bool>>;
 /// </code>
 /// </example>
 public class Step {
-    protected Step skipTo;
+    protected Step activeChild;
     protected Step parent;
     private Condition condition;
     List<Step> children;
@@ -38,6 +39,7 @@ public class Step {
     private float delay;
     private bool repeatable;
     private float repeatDelay;
+    private Step resetToStep;
 
     /// <summary>
     /// Create the root node of a sequence.
@@ -77,6 +79,7 @@ public class Step {
             return this;
         }
 
+        public bool CheckStart() => start();
 
         public bool Evaluate() {
             if (!hasStarted && start()) {
@@ -118,7 +121,7 @@ public class Step {
         children = new List<Step>();
     }
 
-    public Step Repeatable(bool repeatable = true, float delay = 0.3f) {
+    public Step Repeatable(bool repeatable = true, float delay = 0f) {
         this.repeatable = repeatable;
         repeatDelay = delay;
         return this;
@@ -217,9 +220,16 @@ public class Step {
         var next = ThenRepeatable(conditions[0].Item1, delay, conditions[0].Item2);
         return conditions.Length > 1 ? next.Then(conditions.Skip(1).ToArray()) : next;
     }
+    
+    public Step ThenRepeatable(string name, params NamedCondition[] conditions) {
+        if (conditions.Length == 0) return this;
+        var next = ThenRepeatable(conditions[0].Item1, 0f, conditions[0].Item2);
+        return conditions.Length > 1 ? next.Then(conditions.Skip(1).ToArray()) : next;
+    }
+
     public Step ThenRepeatable(params NamedConditionSet[] conditions) {
         if (conditions.Length == 0) return this;
-        var next = ThenRepeatable(conditions[0].Item1, 0.3f, conditions[0].Item2);
+        var next = ThenRepeatable(conditions[0].Item1, 0f, conditions[0].Item2);
         return conditions.Length > 1 ? next.Then(conditions.Skip(1).ToArray()) : next;
     }
 
@@ -240,8 +250,9 @@ public class Step {
     /// Add a sequence of child steps under one name. Toggles the repeatable flag on the first condition.
     /// </summary>
     /// <param name="name">Human-readable name of the step</param>
+    /// <param name="delay">Delay before instruction can repeat</param>
     /// <param name="conditions">Set of conditions</param>
-    public Step ThenRepeatable(string name = "", float delay = 0.3f, params Func<bool>[] conditions) {
+    public Step ThenRepeatable(string name = "", float delay = 0f, params Func<bool>[] conditions) {
         var list = new Queue<Func<bool>>(conditions);
         var next = Then(list.Dequeue(), name).Repeatable(true, delay);
 
@@ -294,7 +305,7 @@ public class Step {
     /// Reset the sequence to the root step.
     /// </summary>
     public void Reset() {
-        skipTo = null;
+        activeChild = null;
         condition.Reset();
         for (var index = 0; index < children.Count; index++) {
             var child = children[index];
@@ -305,26 +316,37 @@ public class Step {
     protected bool Check() { return condition.Evaluate(); }
 
     protected void DoUpdate() {
-        if (skipTo?.repeatable == true && Time.unscaledTime - lastChangedToTime > skipTo.repeatDelay && AtEnd() && !skipTo.Check()) {
-            skipTo.Reset();
-            skipTo = null;
+        if (activeChild?.repeatable == true && Time.unscaledTime - lastChangedToTime > activeChild.repeatDelay && AtEnd() && !activeChild.condition.CheckStart()) {
+            activeChild.Reset();
+            activeChild = null;
         }
-        if (skipTo == null && (parent == null || Time.unscaledTime - parent.lastChangedToTime > delay)) {
+        if (activeChild == null && (parent == null || Time.unscaledTime - parent.lastChangedToTime > delay)) {
             for (var index = 0; index < children.Count; index++) {
                 var child = children[index];
-                if (child.Check()) {
-                    child.action?.Invoke();
-                    if (child.condition.runOnChange)
-                        onStateChange?.Invoke();
-                    skipTo = child;
-                    child.condition.Reset();
-                    lastChangedToTime = Time.unscaledTime;
-                    break;
+                if (!child.Check()) continue;
+
+                child.action?.Invoke();
+                activeChild = child;
+                if (child.condition.runOnChange)
+                    onStateChange?.Invoke();
+                child.condition.Reset();
+                if (child.resetToStep != null)
+                {
+                    var resetParent = this;
+                    activeChild = null;
+                    while (resetParent != null)
+                    {
+                        if (resetParent == child.resetToStep)
+                            resetParent.activeChild = null;
+                        resetParent = resetParent.parent;
+                    }
                 }
+                lastChangedToTime = Time.unscaledTime;
+                break;
             }
         }
 
-        skipTo?.DoUpdate();
+        activeChild?.DoUpdate();
     }
 
     /// <summary>
@@ -340,25 +362,25 @@ public class Step {
     /// </summary>
     public string GetCurrentPath() {
         if (string.IsNullOrEmpty(name) && string.IsNullOrEmpty(actionName)) {
-            return skipTo != null ? skipTo.GetCurrentPath() : "";
+            return activeChild != null ? activeChild.GetCurrentPath() : "";
         }
 
         if (string.IsNullOrEmpty(name)) {
-            return $"[{actionName}]" + (skipTo != null ? " > " + skipTo.GetCurrentPath() : "");
+            return $"[{actionName}]" + (activeChild != null ? " > " + activeChild.GetCurrentPath() : "");
         }
 
         if (string.IsNullOrEmpty(actionName)) {
-            return name + (skipTo != null ? " > " + skipTo.GetCurrentPath() : "");
+            return name + (activeChild != null ? " > " + activeChild.GetCurrentPath() : "");
         }
 
-        return "";
+        return $"{name} > [{actionName}]" + (activeChild != null ? " > " + activeChild.GetCurrentPath() : "");
     }
 
     /// <summary>
     /// Get the current active step.
     /// </summary>
     /// <returns></returns>
-    public Step GetCurrent() { return skipTo?.GetCurrent() ?? this; }
+    public Step GetCurrent() { return activeChild?.GetCurrent() ?? this; }
 
     /// <summary>
     /// Returns true if there are no children for the current step to pass to.
@@ -367,7 +389,7 @@ public class Step {
     /// If this is true, you might want to call root.Reset() when you would like to restart the sequence from the top.
     /// </remarks>
     /// <returns></returns>
-    public bool AtEnd() { return skipTo?.AtEnd() ?? children.Count == 0; }
+    public bool AtEnd() { return activeChild?.AtEnd() ?? children.Count == 0; }
 
     /// <summary>
     /// Return a representation of the sequence tree.
@@ -397,6 +419,11 @@ public class Step {
         }
 
         return output;
+    }
+
+    public void ThenResetTo(Step spawnState)
+    {
+        resetToStep = spawnState;
     }
 }
 

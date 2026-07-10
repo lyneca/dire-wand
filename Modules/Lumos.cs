@@ -19,7 +19,7 @@ public class Lumos : WandSkill {
     public Color sphereColor = Utils.HexColor(77, 123, 191, 5.2f);
     private static readonly int BaseColor = Shader.PropertyToID("_BaseColor");
 
-    public override void OnInit() {
+    public override void Register() {
         wand.button.Then(() => lightThrown
                                && wand.tipViewVelocity.z < -wand.module.gestureVelocityLarge
                                && !wand.localTipVelocity.MostlyZ(), "Flick Back")
@@ -32,7 +32,7 @@ public class Lumos : WandSkill {
             .And("Palm on tip", () => (wand.otherHand.grip.position - wand.tip.position).sqrMagnitude < 0.1f * 0.1f)
             .Do(ControlLight, "Light Control (Bright)")
             .Then(() => !lightThrown
-                        && targetLightIntensity == 1
+                        && Mathf.Approximately(targetLightIntensity, 1)
                         && wand.tipViewVelocity.z > wand.module.gestureVelocityLarge
                         && !wand.localTipVelocity.MostlyZ(), "Throw")
             .Do(ThrowLight, "Throw Light");

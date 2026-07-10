@@ -5,8 +5,8 @@ using UnityEngine;
 namespace Wand;
 
 public class Align : WandSkill {
-    public override void OnInit() {
-        base.OnInit();
+    public override void Register() {
+        base.Register();
         wand.trigger.Then(wand.Swirl(SwirlDirection.Clockwise)).Then(wand.Brandish()).Do(AlignPlayer);
     }
 

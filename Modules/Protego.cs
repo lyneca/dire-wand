@@ -9,8 +9,8 @@ namespace Wand;
 public class Protego : WandSkill {
     public string shieldEffectId = "WandShield";
     private EffectData shieldEffectData;
-    public override void OnInit() {
-        base.OnInit();
+    public override void Register() {
+        base.Register();
         shieldEffectData = Catalog.GetData<EffectData>(shieldEffectId);
         wand.button
             .Then(Gesture.Both.Moving(Direction.Apart))

@@ -11,18 +11,20 @@ public class Basic : WandSkill {
     private Gradient gradient;
     private EffectData fireEffectData;
     private EffectData hitEffectData;
+    public delegate void HitEntity(WandBehaviour wand, Basic basic, ThunderEntity entity);
+    public event HitEntity OnHitEntity;
 
-    public override void OnInit() {
-        base.OnInit();
+    public override void Register() {
+        base.Register();
 
         fireEffectData = Catalog.GetData<EffectData>("WandBasicCast");
         hitEffectData = Catalog.GetData<EffectData>("WandBasicHit");
 
         gradient = Utils.FadeInOutGradient(startColor ?? Utils.HexColor(191, 3, 0, 3.4f), endColor ?? Utils.HexColor(191, 5, 5, 4.6f));
-        var colorStart = Utils.HexColor(191, 3, 0, 3.4f);
-        var colorEnd = Utils.HexColor(191, 5, 5, 4.6f);
-        Debug.Log($"Start: {colorStart.r}, {colorStart.g}, {colorStart.b}, {colorStart.a}");
-        Debug.Log($"End: {colorEnd.r}, {colorEnd.g}, {colorEnd.b}, {colorEnd.a}");
+        // var colorStart = Utils.HexColor(191, 3, 0, 3.4f);
+        // var colorEnd = Utils.HexColor(191, 5, 5, 4.6f);
+        // Debug.Log($"Start: {colorStart.r}, {colorStart.g}, {colorStart.b}, {colorStart.a}");
+        // Debug.Log($"End: {colorEnd.r}, {colorEnd.g}, {colorEnd.b}, {colorEnd.a}");
         
         wand.button.Then(() => wand.tipViewVelocity.z > wand.module.gestureVelocityLarge
                                && !wand.localTipVelocity.MostlyZ(), "Slash Sideways")
@@ -32,7 +34,7 @@ public class Basic : WandSkill {
     public void Fire() {
         var direction = Vector3.Slerp(wand.tipVelocity.normalized, Player.local.head.transform.forward, 0.5f)
                         * (wand.tipVelocity.magnitude * 5);
-        var target = wand.TargetEntity(new Ray(wand.tip.position, direction), WandBehaviour.LiveCreaturesAndItems, doEffect: false);
+        var target = wand.TargetEntity(new Ray(wand.tip.position, direction), Filter.AllButPlayer, doEffect: false);
         if (target == null) return;
         
         MarkCasted();
@@ -49,6 +51,7 @@ public class Basic : WandSkill {
             hitEffect.SetMainGradient(gradient);
             hitEffect.Play();
             wand.item.Haptic(1);
+            OnHitEntity?.Invoke(wand, this, target);
             if (target is Creature creature) {
                 if (!creature.isKilled) {
                     creature.Damage(new CollisionInstance(new DamageStruct(DamageType.Energy, damage) {
@@ -63,7 +66,7 @@ public class Basic : WandSkill {
                 }
 
                 if (target.GetStatusOfType<Floating>() is not null) {
-                    target.AddForce(toTarget.normalized * 60f, ForceMode.VelocityChange);
+                    target.AddForce(toTarget.normalized * 12f, ForceMode.VelocityChange);
                     target.RootPhysicBody.AddTorque(Vector3.Cross(toTarget.normalized, Vector3.up) * 80f, ForceMode.VelocityChange);
                 } else if (creature.ragdoll.state is Ragdoll.State.Destabilized or Ragdoll.State.Inert) {
                     target.AddForce(toTarget.normalized * 8f, ForceMode.VelocityChange);

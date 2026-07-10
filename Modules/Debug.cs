@@ -4,8 +4,8 @@ using ThunderRoad;
 namespace Wand; 
 
 public class DebugToggle : WandSkill {
-    public override void OnInit() {
-        base.OnInit();
+    public override void Register() {
+        base.Register();
         wand.button.Then(() => wand.item.isGripped && wand.Triggering)
             .Do(() => {
                 wand.debug = !wand.debug;

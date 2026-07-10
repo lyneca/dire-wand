@@ -9,7 +9,7 @@ namespace Wand;
 public class Imperio : WandSkill {
     public Step imperio;
 
-    public override void OnInit() {
+    public override void Register() {
         imperio = wand.targetedEnemy
             .Then(wand.Offhand.Palm(Direction.Forward).Point(Direction.Up).Fist)
             .Do(() => wand.RunAfter(ControlEntity, 0.3f));

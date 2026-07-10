@@ -7,14 +7,15 @@ using UnityEngine;
 namespace Wand; 
 
 public class Scale : WandSkill {
-    public override void OnInit() {
-        base.OnInit();
-            
+    public override void Register()
+    {
+        base.Register();
+
         wand.targetedItem
-            .Then(Gesture.OnSide(wand.otherHand.side).Gripping.Palm(Direction.Together).Moving(Direction.Apart))
+            .Then(wand.Offhand.Gripping.MovingTowards(() => wand.tip.position))
             .Do(StartScale);
         wand.targetedItem
-            .Then(Gesture.OnSide(wand.otherHand.side).Gripping.Palm(Direction.Together).Moving(Direction.Together))
+            .Then(wand.Offhand.Gripping.MovingAwayFrom(() => wand.tip.position))
             .Do(StartScale);
     }
 
@@ -23,8 +24,7 @@ public class Scale : WandSkill {
         wand.StartCoroutine(ScaleRoutine(HandDistance));
     }
 
-    public float HandDistance => Vector3.Distance(wand.holdingHand.palmCollider.transform.position,
-        wand.otherHand.palmCollider.transform.position);
+    public float HandDistance => Vector3.Distance(wand.tip.position, wand.otherHand.palmCollider.transform.position);
 
     public IEnumerator ScaleRoutine(float startDistance)
     {
@@ -39,21 +39,21 @@ public class Scale : WandSkill {
 
         while (wand.active)
         {
-            scaleHelper.Scale(ScaleRatio());
+            scaleHelper.Scale(Mathf.Lerp(scaleHelper.currentLiveScale, ScaleRatio(), Time.unscaledDeltaTime * 10));
             yield return 0;
         }
-
+        wand.target.Remove("BubbleGravity", this);
         scaleHelper.Set(ScaleRatio());
         yield break;
 
-        float ScaleRatio() => 1 + (HandDistance - startDistance).RemapClamp(-0.5f, 0.5f, -0.5f, 0.5f);
+        float ScaleRatio() => (HandDistance - startDistance).RemapClamp(0f, 0.5f, 0.25f, 4);
     }
-
 
     public abstract class ScaleHelper : MonoBehaviour {
         protected float currentScale = 1;
         protected float lowerScaleLimit = 1 / 4f;
         protected float upperScaleLimit = 4f;
+        public float currentLiveScale;
 
         public abstract void Set(float scale);
         public abstract float Scale(float scale);
@@ -104,8 +104,10 @@ public class Scale : WandSkill {
                 item.physicBody.ResetCenterOfMass();
         }
 
-        public override float Scale(float scale) {
+        public override float Scale(float scale)
+        {
             float size = Mathf.Clamp(scale * currentScale, lowerScaleLimit, upperScaleLimit);
+            currentLiveScale = size / currentScale;
             item.transform.localScale = Vector3.one * size;
             item.physicBody.mass = IncreaseMass(originalMass, size);
             item.data.mass = IncreaseMass(originalDataMass, size);
@@ -299,6 +301,7 @@ public class Scale : WandSkill {
 
         public override float Scale(float scale) {
             float size = Mathf.Clamp(scale * currentScale, lowerScaleLimit, upperScaleLimit);
+            currentLiveScale = size / currentScale;
             float newScale = scale * currentScale;
             
             // creature.ragdoll.SavePartsPosition();

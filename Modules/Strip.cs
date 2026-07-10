@@ -8,8 +8,8 @@ using UnityEngine.Experimental.Audio;
 namespace Wand; 
 
 public class Strip : WandSkill {
-    public override void OnInit() {
-        base.OnInit();
+    public override void Register() {
+        base.Register();
         wand.targetedEnemy
             .Then(wand.Offhand.Palm(Direction.Inwards).Moving(Direction.Outwards, 2.5f).Open)
             .Then(wand.Offhand.Palm(Direction.Inwards).Moving(Direction.Inwards, 2.5f).Open)

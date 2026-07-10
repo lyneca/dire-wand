@@ -10,26 +10,31 @@ public class Fireball : WandSkill {
     public static EffectData fireballEffectData;
     public int numCasts = 3;
 
-    public override void OnInit()
+    public override void Register()
     {
-        base.OnInit();
+        base.Register();
         fireballData = Catalog.GetData<ItemData>("DynamicProjectile");
         damagerData = Catalog.GetData<DamagerData>("Fireball");
         fireballEffectData = Catalog.GetData<EffectData>("SpellFireball");
 
-        wand.button
-            .Then(wand.Swirl(SwirlDirection.Clockwise))
-            .ThenRepeatable(0.1f, wand.Brandish())
+        var fireball = wand.button
+            .Then(wand.Swirl(SwirlDirection.Clockwise));
+
+        fireball.Then("Slash Sideways", () => wand.tipViewVelocity.z > wand.module.gestureVelocityLarge && !wand.localTipVelocity.MostlyZ())
+            .Repeatable()
             .Do(() =>
             {
-                ThrowFireballStatic(wand, wand.tip.forward * 20);
+                ThrowFireballStatic(wand);
                 MarkCasted();
             }, "Throw Fireball");
+        //.ThenResetTo(fireball);
     }
 
-    public static void ThrowFireballStatic(WandBehaviour wand, Vector3 direction) {
+    public static void ThrowFireballStatic(WandBehaviour wand) {
         wand.PlaySound(SoundType.Foll);
         wand.module.castEffectData.Spawn(wand.tip).Play();
+        var direction = Vector3.Slerp(wand.tipVelocity.normalized, Player.local.head.transform.forward, 0.5f)
+                        * (wand.tipVelocity.magnitude * 5);
         fireballData.SpawnAsync(projectile => {
             projectile.transform.SetPositionAndRotation(wand.tip.position, wand.tip.rotation);
             for (var index = 0; index < projectile.collisionHandlers.Count; index++) {
@@ -44,12 +49,13 @@ public class Fireball : WandSkill {
 
             var component = projectile.GetComponent<ItemMagicProjectile>();
             component.guidance = GuidanceMode.NonGuided;
-            component.directedHoming = true;
+            component.targetCreature = null;
             component.speed = 15;
             component.item.lastHandler = wand.item.lastHandler;
             component.allowDeflect = false;
-            component.imbueEnergyTransfered = 10;
+            component.imbueEnergyTransfered = 0;
             component.Fire(direction, fireballEffectData, wand.item, homing: true);
+            component.directedHoming = true;
         });
         // wand.canRestart = true;
     }

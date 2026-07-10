@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections;
 using ExtensionMethods;
-using GestureEngine;
 using ThunderRoad;
 using UnityEngine;
 
@@ -9,19 +8,21 @@ namespace Wand;
 
 public class Hover : WandSkill {
     public EffectData slamEffect;
-    public override void OnInit() {
-        base.OnInit();
+    public float liftForceAmount = 3f;
+
+    public override void Register() {
+        base.Register();
         slamEffect = Catalog.GetData<EffectData>("WandSlam");
 
-        wand.OnTargetEntity(state => {
-            var hover = wand.Offhand.Moving(Direction.Up).Palm(Direction.Up).Gripping;
-            var slam = wand.Offhand.Moving(Direction.Down).Palm(Direction.Down).Gripping;
-
+        wand.OnTargetEntity(state =>
+        {
             state
-                .ThenRepeatable(wand.Flick(AxisDirection.Up, wand.module.gestureVelocityLarge))
+                .Then(wand.Flick(AxisDirection.Up, wand.module.gestureVelocityLarge))
+                .Repeatable()
                 .Do(HoverEntity, "Hover Entity");
             state
                 .ThenRepeatable(wand.Flick(AxisDirection.Down, wand.module.gestureVelocityLarge))
+                .Repeatable()
                 .Do(SlamEntity, "Slam Entity");
         });
 
@@ -29,6 +30,14 @@ public class Hover : WandSkill {
 
     public void HoverEntity() {
         MarkCasted();
+        CollisionHandler handler = null;
+        if (wand.target is Creature creature)
+        {
+            creature.ragdoll.SetState(Ragdoll.State.Destabilized);
+            handler = creature.ragdoll.rootPart.collisionHandler;
+        }
+
+        wand.target.AddForce(Vector3.up * liftForceAmount, ForceMode.VelocityChange, handler);
         wand.target.Inflict("WandFloating", this, 10);
     }
 
@@ -38,11 +47,10 @@ public class Hover : WandSkill {
         wand.target.AddForce(Vector3.down * 24, ForceMode.VelocityChange);
         var target = wand.target;
         wand.target.OnNextCollision(instance => {
-            if (instance.impactVelocity.magnitude < 4) return;
             wand.module.SpawnShockwave(instance.contactPoint + instance.contactNormal * 0.1f, instance.contactNormal);
             Utils.Explosion(instance.contactPoint, instance.impactVelocity.magnitude.Clamp(0, 20) / 2, 3.5f, true, affectPlayer: true);
-            slamEffect.Spawn(instance.contactPoint, Quaternion.identity).Play();
+            slamEffect.Spawn(instance.contactPoint, Quaternion.LookRotation(Vector3.right, instance.contactNormal)).Play();
             target.Inflict("WandFloating", (this, "shockwave"), 2);
-        }, 3);
+        }, out _);
     }
 }

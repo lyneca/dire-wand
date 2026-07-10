@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using ExtensionMethods;
 using ThunderRoad;
+using ThunderRoad.Skill.Spell;
 using UnityEngine;
 
 namespace Wand;
@@ -10,10 +11,12 @@ public class Firebreathing : WandSkill {
     public float dps = 30;
     public static EffectData revealFire;
     private Dictionary<Creature, RaycastHit> hits;
+    public SkillInfernoStaff skill;
 
-    public override void OnInit() {
-        base.OnInit();
+    public override void Register() {
+        base.Register();
         revealFire = Catalog.GetData<EffectData>("RevealFire");
+        skill = Catalog.GetData<SkillInfernoStaff>("InfernoStaff");
         wand.button
             .Then(() => Vector3.Distance(wand.tip.position, Player.currentCreature.mouthRelay.transform.position)
                         < 0.1f)
@@ -28,30 +31,28 @@ public class Firebreathing : WandSkill {
 
     public IEnumerator FlamethrowerRoutine(Transform parent) {
         var speak = Player.currentCreature.brain.instance.GetModule<BrainModuleSpeak>();
-        var effect = Catalog.GetData<EffectData>("WandFlamethrower")
-            .Spawn(parent.transform.position - Vector3.up * 0.03f, Player.local.head.transform.rotation, parent);
-        effect.Play();
-        effect.SetIntensity(1);
+        var flamethrower = new GameObject().GetOrAddComponent<Flamethrower>();
+        flamethrower.transform.SetParent(parent);
+        flamethrower.transform.SetPositionAndRotation(parent.transform.position - Vector3.up * 0.03f, Player.local.head.transform.rotation);
+        flamethrower.Fire(skill, Player.currentCreature, null, true);
         speak.GetField<Transform>("jawAnimBone").localRotation = Quaternion.Lerp(speak.jawOrgLocalRotation,
             speak.jawOrgLocalRotation * Quaternion.Euler(Player.currentCreature.jawMaxRotation), 0.5f);
         var lastPos = parent.position + parent.forward;
         float speed = 0;
         while (wand.active
                && Vector3.Distance(wand.tip.position, parent.position) < 0.2f) {
-            var currentPos = parent.position + parent.forward;
-            speed = Mathf.Lerp(speed,
-                (lastPos - currentPos).magnitude.RemapClamp01(0, LiveValue.Get<float>("flame.speed", 0.02f)),
-                Time.deltaTime * 20);
-            lastPos = currentPos;
-            effect.SetSpeed(speed);
-            CastFlames();
-            yield return new WaitForSeconds(0.1f);
+            // var currentPos = parent.position + parent.forward;
+            // speed = Mathf.Lerp(speed,
+            //     (lastPos - currentPos).magnitude.RemapClamp01(0, LiveValue.Get<float>("flame.speed", 0.02f)),
+            //     Time.deltaTime * 20);
+            // lastPos = currentPos;
+            // CastFlames();
+            yield return 0;
         }
 
         speak.GetField<Transform>("jawAnimBone").localRotation = Quaternion.Lerp(speak.jawOrgLocalRotation,
             speak.jawOrgLocalRotation * Quaternion.Euler(Player.currentCreature.jawMaxRotation), 0);
-        effect.onEffectFinished += instance => instance.Despawn();
-        effect.End();
+        flamethrower.Fire(skill, Player.currentCreature, null, false);
     }
 
     public void ApplyFireEffects(RaycastHit hit, ColliderGroup group) {

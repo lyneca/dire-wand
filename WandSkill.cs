@@ -68,7 +68,7 @@ public class WandSkill : SkillData {
         }
     }
 
-    public virtual void OnInit() {}
+    public virtual void Register() {}
     public virtual void OnUpdate() {}
     public virtual void OnReset() {}
 }

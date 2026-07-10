@@ -9,8 +9,8 @@ public class Spongify : WandSkill {
     public string bounceEffectId = "WandThrum";
     public EffectData bounceEffectData;
 
-    public override void OnInit() {
-        base.OnInit();
+    public override void Register() {
+        base.Register();
         bounceEffectData = Catalog.GetData<EffectData>(bounceEffectId);
         wand.targetedItem
             .Then(wand.Offhand.Fist.Palm(Direction.Inwards).Thumb(Direction.Up).Moving(Direction.Down))

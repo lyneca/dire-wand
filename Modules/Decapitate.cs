@@ -10,8 +10,8 @@ using UnityEngine;
 namespace Wand; 
 
 public class Decapitate : WandSkill {
-    public override void OnInit() {
-        base.OnInit();
+    public override void Register() {
+        base.Register();
 
         wand.profane
             .Then(wand.Flick(AxisDirection.Left, wand.module.gestureVelocityLarge * 1.5f),

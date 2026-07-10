@@ -7,8 +7,8 @@ using UnityEngine;
 namespace Wand; 
 
 public class Lightning : WandSkill {
-    public override void OnInit() {
-        base.OnInit();
+    public override void Register() {
+        base.Register();
         wand.button.Then(() => wand.localTipVelocity.MostlyZ()
                                && wand.localTipVelocity.z > wand.module.gestureVelocityNormal, "Stab Forwards")
             .Do(LightningBolt, "Lightning Bolt");
@@ -21,7 +21,7 @@ public class Lightning : WandSkill {
 
     public IEnumerator LightningBoltRoutine() {
         var spell = Catalog.GetData<SpellCastLightning>("Lightning");
-        var arcStaffEffectData = Catalog.GetData<EffectData>("SpellLightningArcLoop");
+        var arcStaffEffectData = Catalog.GetData<EffectData>("SpellLightningArcStaffLoop");
         var skill = Catalog.GetData<SkillArcwire>("Arcwire");
         var prevNode = LightningTrailNode.New(wand.tip.position, skill, null, Player.currentCreature);
         var nextNode

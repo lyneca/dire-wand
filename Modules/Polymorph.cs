@@ -5,8 +5,8 @@ using UnityEngine;
 namespace Wand; 
 
 public class Polymorph : WandSkill {
-    public override void OnInit() {
-        base.OnInit();
+    public override void Register() {
+        base.Register();
 
         wand.profane
             .Then(wand.Swirl(SwirlDirection.Clockwise))

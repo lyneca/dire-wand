@@ -223,17 +223,19 @@ public class ItemModuleWand : ItemModule {
     public EffectData flamethrowerEffectData;
     public string shockwaveMatAddress = "Lyneca.Wand.ShockwaveMat";
     public string explosionEffectId = "WandExplosion";
-    public EffectData explosionEffectData;
     public Material shockwaveMat;
     public ObjectPool<Shockwave> shockwavePool;
     public float shockwaveDuration = 0.6f;
     public Material lightMat;
     public Material wandTrailMat;
+    public float swirlMinAngle = 90;
 
     public List<WandSkill> spells = [];
 
-    [ModOption("Unlock All Spells"), ModOptionButton]
-    public static void UnlockAllSpells()
+    public static ModOptionParameter[] buttonValues = [new ModOptionBool("Unlock All Spells", false), new ModOptionBool("Unlock All Spells", true)];
+    
+    [ModOption("Unlock All Spells"), ModOptionButton, ModOptionValues(nameof(buttonValues))]
+    public static void UnlockAllSpells(bool _)
     {
         var skills = Catalog.GetDataList<WandSkill>();
         foreach (var skill in skills)
@@ -304,6 +306,8 @@ public class ItemModuleWand : ItemModule {
 
     public float targetDistance = 25;
     public float targetAngle = 20;
+    public string shockwaveEffectId = "WandShockwave";
+    public EffectData shockwaveEffect;
 
     private static readonly int Size = Shader.PropertyToID("Size");
     private static readonly int Warp = Shader.PropertyToID("Warp");
@@ -342,11 +346,16 @@ public class ItemModuleWand : ItemModule {
 
     public void SpawnShockwave(Vector3 position, Vector3 facingDir, float size = 1)
     {
-        if (GameManager.platform is PlatformAndroid) return;
-        var shockwave = shockwavePool.Get();
-        shockwave.transform.localScale = Vector3.one * (0.5f * size);
-        shockwave.transform.SetPositionAndRotation(position,
-            Quaternion.LookRotation(facingDir) * Quaternion.FromToRotation(Vector3.up, Vector3.forward));
+        shockwaveEffect?.Spawn(position, Quaternion.LookRotation(facingDir))?.Play();
+        if (GameManager.platform is PlatformAndroid)
+        {
+            // shockwaveEffect?.Spawn(position, Quaternion.LookRotation(facingDir))?.Play();
+            return;
+        }
+        // var shockwave = shockwavePool.Get();
+        // shockwave.transform.localScale = Vector3.one * (0.5f * size);
+        // shockwave.transform.SetPositionAndRotation(position,
+        //     Quaternion.LookRotation(facingDir) * Quaternion.FromToRotation(Vector3.up, Vector3.forward));
     }
 
     public class Shockwave : MonoBehaviour {
@@ -417,6 +426,7 @@ public class ItemModuleWand : ItemModule {
     public override void OnItemDataRefresh(ItemData data) {
         base.OnItemDataRefresh(data);
         
+        EventManager.onCreatureSpawn += OnCreatureSpawn;
         if (ModManager.loadedMods.FirstOrDefault(mod => mod.Name == "Dire Wand") is ModManager.ModData mod)
             Debug.Log($"Wand version {mod.ModVersion}");
         EventManager.onLevelLoad += OnLevelLoad;
@@ -431,9 +441,19 @@ public class ItemModuleWand : ItemModule {
         polymorphEffectData = Catalog.GetData<EffectData>(polymorphEffectId);
         freezeEffectData = Catalog.GetData<EffectData>(freezeEffectId);
         flamethrowerEffectData = Catalog.GetData<EffectData>(flamethrowerEffectId);
-        explosionEffectData = Catalog.GetData<EffectData>(explosionEffectId);
+        shockwaveEffect = Catalog.GetData<EffectData>(shockwaveEffectId);
+        Catalog.GetData<EffectData>(explosionEffectId);
         
         EventManager.OnItemBrokenEnd += OnItemBreak;
+    }
+
+    private void OnCreatureSpawn(Creature creature)
+    {
+        creature.handRight.OnGrabEvent += (_, handle, _, _, time) =>
+        {
+            if (time == EventTime.OnEnd)
+                creature.SetVariable("LastHeldItem", handle.item);
+        };
     }
 
     public static void OnItemBreak(Breakable breakable, PhysicBody[] pieces) {
@@ -471,7 +491,6 @@ public class WandBehaviour : MonoBehaviour {
     public Ray tipRay;
     protected Ray tipLookRay;
     public Ray tipPlayerRay;
-    public ObjectPool<GameObject> objectPool;
     
     public delegate void WandSkillReload();
 
@@ -545,9 +564,10 @@ public class WandBehaviour : MonoBehaviour {
         
         root = Step.Start(() => {
             item.Haptic(0.7f);
+            // Debug.Log(root.GetCurrentPath());
             // SpawnNode();
         });
-
+        
         button = root
             .Then(() => Buttoning, "Button Held",
                 runOnChange: false);
@@ -559,14 +579,13 @@ public class WandBehaviour : MonoBehaviour {
             .Do(() => TargetEntity(null, null, module.targetArgs), "Target Entity");
 
         profane = trigger
-            .Then(Swirl(SwirlDirection.Clockwise))
+            .Then(Swirl(SwirlDirection.Either))
             .Then(Brandish())
-            .Do(() => TargetEntity(null, Filter.NPCs, module.profaneArgs));
-
-        profane = trigger
-            .Then(Swirl(SwirlDirection.CounterClockwise))
-            .Then(Brandish())
-            .Do(() => TargetEntity(null, Filter.NPCs, module.profaneArgs));
+            .Do(() =>
+            {
+                TargetEntity(null, Filter.NPCs, module.profaneArgs);
+                ResetSwirl();
+            });
 
         targetedEnemy = targetedEntity.Then(() => target is Creature , "Creature Targeted");
         targetedItem = targetedEntity.Then(() => target is Item, "Item Targeted");
@@ -579,24 +598,25 @@ public class WandBehaviour : MonoBehaviour {
 
     public void Awake()
     {
+        OnWandSkillReload -= ReloadSpells;
         OnWandSkillReload += ReloadSpells;
         
-        objectPool = new ObjectPool<GameObject>(() => new GameObject(),
-            obj => obj.SetActive(true),
-            obj => {
-                obj.transform.SetParent(null);
-                obj.transform.DetachChildren();
-                var components = obj.GetComponents<Component>();
-                for (var index = 0; index < components.Length; index++) {
-                    var component = components[index];
-                    if (component is Transform)
-                        continue;
-                    Destroy(component);
-                }
+        // objectPool = new ObjectPool<GameObject>(() => new GameObject(),
+        //     obj => obj.SetActive(true),
+        //     obj => {
+        //         obj.transform.SetParent(null);
+        //         obj.transform.DetachChildren();
+        //         var components = obj.GetComponents<Component>();
+        //         for (var index = 0; index < components.Length; index++) {
+        //             var component = components[index];
+        //             if (component is Transform)
+        //                 continue;
+        ///             Destroy(component);
+        //         }
 
-                obj.SetActive(false);
-            },
-            obj => Destroy(obj), false, 10, 20);
+        //         obj.SetActive(false);
+        //     }
+        //     obj => Destroy(obj), false, 10, 20);
 
         spells = new List<WandSkill>();
         rollingPoints = new Vector3[numRollingPoints];
@@ -634,15 +654,21 @@ public class WandBehaviour : MonoBehaviour {
                     break;
             }
         };
-        item.OnDespawnEvent += time => {
-            if (time == EventTime.OnEnd)
-                objectPool.Clear();
-        };
+        item.OnDespawnEvent += OnDespawn;
+    }
+
+    public void OnDespawn(EventTime time)
+    {
+        if (time == EventTime.OnStart) return;
+        OnWandSkillReload -= ReloadSpells;
+        // objectPool.Clear();
     }
 
     public bool Buttoning => item.mainHandler?.Buttoning() ?? false;
     public bool Triggering => item.mainHandler?.Triggering() ?? false;
 
+    public Gesture MainHand
+        => new(() => holdingHand == null ? Gesture.HandSide.Both : Gesture.ToHandSide(holdingHand.side));
     public Gesture Offhand
         => new(() => otherHand == null ? Gesture.HandSide.Both : Gesture.ToHandSide(otherHand.side));
 
@@ -689,7 +715,7 @@ public class WandBehaviour : MonoBehaviour {
         for (var index = 0; index < spells.Count; index++) {
             var eachModule = spells[index];
             eachModule.Begin(this);
-            eachModule.OnInit();
+            eachModule.Register();
         }
     }
 
@@ -964,25 +990,25 @@ public class WandBehaviour : MonoBehaviour {
                 break;
         }
 
-        return Tuple.Create($"Flick {direction}", gesture != null ? new[] { gesture } : new Func<bool>[] { });
+        return Tuple.Create<string, Func<bool>[]>($"Flick {direction}", gesture != null ? [gesture] : []);
     }
 
     public NamedConditionSet Swirl(SwirlDirection direction, int amount = 1) {
         switch (direction) {
             case SwirlDirection.CounterClockwise:
                 return Tuple.Create("Swirl CCW", new Func<bool>[] {
-                    () => swirlAngle > 180 * (amount * 2 - 1),
-                    () => swirlAngle > 180 * amount * 2
+                    () => swirlAngle > module.swirlMinAngle * (amount * 2 - 1),
+                    () => swirlAngle > module.swirlMinAngle * amount * 2
                 });
             case SwirlDirection.Clockwise:
                 return Tuple.Create("Swirl CW", new Func<bool>[] {
-                    () => swirlAngle < -180 * (amount * 2 - 1),
-                    () => swirlAngle < -180 * amount * 2
+                    () => swirlAngle < -module.swirlMinAngle * (amount * 2 - 1),
+                    () => swirlAngle < -module.swirlMinAngle * amount * 2
                 });
             case SwirlDirection.Either:
                 return Tuple.Create("Swirl", new Func<bool>[] {
-                    () => Mathf.Abs(swirlAngle) > 180 * (amount * 2 - 1),
-                    () => Mathf.Abs(swirlAngle) > 180 * amount * 2
+                    () => Mathf.Abs(swirlAngle) > module.swirlMinAngle * (amount * 2 - 1),
+                    () => Mathf.Abs(swirlAngle) > module.swirlMinAngle * amount * 2
                 });
         }
 
@@ -1132,15 +1158,15 @@ public class WandBehaviour : MonoBehaviour {
 
     public AxisDirection InwardsDirection => holdingHand?.side switch
     {
-        Side.Right => AxisDirection.Right,
-        Side.Left => AxisDirection.Left,
+        Side.Right => AxisDirection.Left,
+        Side.Left => AxisDirection.Right,
         null => AxisDirection.Left
     };
 
     public AxisDirection OutwardsDirection => holdingHand?.side switch
     {
-        Side.Right => AxisDirection.Left,
-        Side.Left => AxisDirection.Right,
+        Side.Right => AxisDirection.Right,
+        Side.Left => AxisDirection.Left,
         null => AxisDirection.Right
     };
     
@@ -1190,6 +1216,28 @@ public class WandBehaviour : MonoBehaviour {
 
     public void OnReset(Action action) => onResetActions.Add(action);
     public void UntilReset(Action action) => untilResetActions.Add(action);
+
+    public void ResetSwirl()
+    {
+        numPointsStored = 0;
+        swirlAngle = 0;
+        swirling = false;
+    }
+
+    public bool TryGetSkill<T>(string id, out T skill) where T: WandSkill
+    {
+        skill = null;
+        for (var i = 0; i < spells.Count; i++)
+        {
+            if (spells[i] is T && spells[i].id.Equals(id))
+            {
+                skill = spells[i] as T;
+                return true;
+            }
+        }
+
+        return false;
+    }
 }
 
 public enum SoundType {

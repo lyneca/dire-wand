@@ -22,15 +22,15 @@ public class Thunderbolt : WandSkill {
     private Transform targetPoint;
     private EffectInstance sparks;
 
-    public override void OnInit() {
-        base.OnInit();
+    public override void Register() {
+        base.Register();
         boltEffectData = Catalog.GetData<EffectData>("WandThunderbolt");
         chargeEffectData = Catalog.GetData<EffectData>("WandStorm");
         
         wand.button
             .Then("Facing up", () => wand.tipRay.direction.IsFacing(Vector3.up, 20))
             .Do(Sparks)
-            .Then(wand.Swirl(SwirlDirection.Clockwise, 2))
+            .Then(wand.Swirl(SwirlDirection.Clockwise, 4))
             .Do(LightningCharge)
             .Then(() => wand.tipVelocity.y < -wand.module.gestureVelocityNormal)
             .Do(LightningStrike);

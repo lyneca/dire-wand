@@ -8,8 +8,8 @@ namespace Wand;
 public class Grapple : WandSkill {
     public string grappleLineEffectId = "GrappleLine";
     public EffectData grappleLineEffectData;
-    public override void OnInit() {
-        base.OnInit();
+    public override void Register() {
+        base.Register();
         grappleLineEffectData = Catalog.GetData<EffectData>(grappleLineEffectId);
         wand.trigger.Then(wand.Flick(AxisDirection.Up), wand.Point(ViewDir.Up))
             .Do(() => wand.PlaySound(SoundType.Hagh))
@@ -27,7 +27,8 @@ public class Grapple : WandSkill {
     }
 
     public IEnumerator GrappleRoutine(RaycastHit hit) {
-        var targetObj = wand.objectPool.Get();
+        // var targetObj = wand.objectPool.Get();
+        var targetObj = new GameObject("GrapplePoint");
         var grappleLine = grappleLineEffectData.Spawn(wand.transform);
         targetObj.transform.SetPositionAndRotation(hit.point, Quaternion.LookRotation(hit.normal));
         grappleLine.SetSource(wand.tip);
@@ -43,7 +44,7 @@ public class Grapple : WandSkill {
 
         Vector3 velocity = wand.tipVelocity;
         grappleLine.End();
-        wand.objectPool.Release(targetObj);
+        Object.Destroy(targetObj);
 
         Vector3 force = Vector3.Slerp(velocity.normalized * -1, (hit.point - wand.tip.position).normalized, 0.5f)
                         * (velocity.magnitude * 2f);

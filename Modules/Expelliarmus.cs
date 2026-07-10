@@ -7,14 +7,14 @@ using UnityEngine;
 namespace Wand; 
 
 public class Expelliarmus : WandSkill {
-    public override void OnInit() {
-        base.OnInit();
+    public override void Register() {
+        base.Register();
 
         wand.targetedEnemy
-            .Then(wand.Offhand.Gripping.Moving(Direction.Backward, wand.module.gestureVelocitySmall).Palm(Direction.Up))
+            .Then(wand.Offhand.Gripping.Palm(Direction.Up))
             .Do(DisarmEntity, "Disarm Entity");
         wand.targetedItem
-            .Then(wand.Offhand.Gripping.Moving(Direction.Backward, wand.module.gestureVelocitySmall).Palm(Direction.Up))
+            .Then(wand.Offhand.Gripping.Palm(Direction.Up))
             .Do(DisarmEntity, "Pull Item");
     }
 

@@ -75,106 +75,6 @@ public static class Extensions {
     }
 
 }
-//     public static bool InDirection(this Vector3 vec, ViewDir direction, float amount = 0) {
-//         return vec.Mostly(direction.GetAxis()) && direction.Compare(vec, amount);
-//     }
-// 
-//     public static float Abs(this float num) => Mathf.Abs(num);
-// 
-//     public static int Sign(this ViewDir dir) {
-//         return dir switch {
-//             ViewDir.Right or ViewDir.Up or ViewDir.Forward => 1,
-//             ViewDir.Left or ViewDir.Down or ViewDir.Back => -1,
-//             _ => 0
-//         };
-//     }
-// 
-//     public static Axis GetAxis(this ViewDir dir) {
-//         return dir switch {
-//             ViewDir.X or ViewDir.Left or ViewDir.Right => Axis.X,
-//             ViewDir.Y or ViewDir.Up or ViewDir.Down => Axis.Y,
-//             ViewDir.Z or ViewDir.Forward or ViewDir.Back => Axis.Z,
-//             _ => throw new ArgumentOutOfRangeException(nameof(dir), dir, null)
-//         };
-//     }
-// 
-//     public static float GetAxis(this Vector3 vec, Axis axis) {
-//         return axis switch {
-//             Axis.X => vec.x,
-//             Axis.Y => vec.y,
-//             Axis.Z => vec.z,
-//             _ => throw new ArgumentOutOfRangeException(nameof(axis), axis, null)
-//         };
-//     }
-// 
-//     public static bool Compare(this ViewDir dir, Vector3 vec, float amount) {
-//         return dir.Sign() switch {
-//             1 => vec.GetAxis(dir.GetAxis()) > amount,
-//             0 => vec.GetAxis(dir.GetAxis()).Abs() > amount,
-//             -1 => vec.GetAxis(dir.GetAxis()) < -amount,
-//             _ => false
-//         };
-//     }
-// 
-//     public static bool Triggering(this RagdollHand hand) => hand?.playerHand?.controlHand?.usePressed ?? false;
-//     public static bool Gripping(this RagdollHand hand) => hand?.playerHand?.controlHand?.gripPressed ?? false;
-//     public static bool MostlyX(this Vector3 vec) => vec.x.Abs() > vec.y.Abs() && vec.x.Abs() > vec.z.Abs();
-// 
-//     /// <summary>
-//     /// Returns true if the vector's Y component is its largest component
-//     /// </summary>
-//     public static bool MostlyY(this Vector3 vec) => vec.y.Abs() > vec.x.Abs() && vec.y.Abs() > vec.z.Abs();
-// 
-//     /// <summary>
-//     /// Returns true if the vector's Z component is its largest component
-//     /// </summary>
-//     public static bool MostlyZ(this Vector3 vec) => vec.z.Abs() > vec.x.Abs() && vec.z.Abs() > vec.y.Abs();
-// 
-//     public static string Join(this string delimiter, params object[] strings) {
-//         return string.Join(delimiter, strings.Where(str => str != null).ToList());
-//     }
-// 
-//     public static bool Mostly(this Vector3 vec, Axis axis) {
-//         return axis switch {
-//             Axis.X => vec.MostlyX(),
-//             Axis.Y => vec.MostlyY(),
-//             Axis.Z => vec.MostlyZ(),
-//             _ => throw new ArgumentOutOfRangeException(nameof(axis), axis, null)
-//         };
-//     }
-// 
-//     public static Vector3 LocalVelocity(this RagdollHand hand)
-//         => hand.Velocity() - Player.local.locomotion.rb.GetPointVelocity(hand.transform.position);
-// 
-//     public static Vector3 ToUnitVector(this ViewDir dir) => dir switch {
-//         ViewDir.Forward => Vector3.forward,
-//         ViewDir.Back => Vector3.back,
-//         ViewDir.Up => Vector3.up,
-//         ViewDir.Down => Vector3.down,
-//         ViewDir.Left => Vector3.left,
-//         ViewDir.Right => Vector3.right,
-//         _ => throw new ArgumentOutOfRangeException(nameof(dir), dir, null)
-//     };
-// 
-//     public static Vector3 WorldToViewSpace(this Vector3 vec) => Player.local.head.transform.InverseTransformVector(vec);
-// 
-//     public static Vector3 WorldToViewPlaneSpace(this Vector3 vec)
-//         => Quaternion.Inverse(Player.local.head.transform.rotation) * vec;
-// 
-//     public static Vector3 LocalToViewSpace(this Vector3 vec) => Player.local.head.transform.TransformVector(vec);
-// 
-//     public static Vector3 LocalToViewPlaneSpace(this Vector3 vec) => Quaternion.LookRotation(
-//                                                                          Vector3.ProjectOnPlane(
-//                                                                              Player.local.head.transform.forward,
-//                                                                              Vector3.up),
-//                                                                          Vector3.up)
-//                                                                      * vec;
-// 
-//     public static Vector3 ToWorldViewVector(this ViewDir dir) => dir.ToUnitVector().LocalToViewSpace().normalized;
-// 
-//     public static Vector3 ToWorldViewPlaneVector(this ViewDir dir)
-//         => dir.ToUnitVector().LocalToViewPlaneSpace().normalized;
-// }
 
 /// <summary>
 /// A rig for the player. Defaults to the actual player rig and positions (for use in gesture testing),
@@ -248,10 +148,14 @@ public class Gesture {
     protected Direction point = Direction.Any;
     protected (Direction direction, float speed) moving;
     public Position position;
-    protected bool still = false;
-    protected bool? gripping = null;
-    protected bool? triggering = null;
+    protected bool still;
+    protected bool? gripping;
+    protected bool? triggering;
     protected List<(Direction direction, float amount)> offsets;
+    private Func<Vector3> movingTowardsFunc;
+    private float movingTowardsVelocity;
+    private Func<Vector3> movingAwayFunc;
+    private float movingAwayVelocity;
 
     /// <summary>
     /// Create a gesture on a particular side.
@@ -401,6 +305,20 @@ public class Gesture {
     /// </summary>
     public Gesture At(Position position) {
         this.position = position;
+        return this;
+    }
+
+    public Gesture MovingTowards(Func<Vector3> positionFunc, float velocity = 2)
+    {
+        movingTowardsFunc = positionFunc;
+        movingTowardsVelocity = velocity;
+        return this;
+    }
+
+    public Gesture MovingAwayFrom(Func<Vector3> positionFunc, float velocity = 2)
+    {
+        movingAwayFunc = positionFunc;
+        movingAwayVelocity = velocity;
         return this;
     }
 
@@ -564,6 +482,8 @@ public class Gesture {
            && (palm == Direction.Any || CheckHandAgainst(hand, hand.PalmDir, palm))
            && (thumb == Direction.Any || CheckHandAgainst(hand, hand.ThumbDir, thumb))
            && (point == Direction.Any || CheckHandAgainst(hand, hand.PointDir, point))
+           && (movingTowardsFunc == null || hand.MovingTowards(movingTowardsFunc.Invoke(), minVelocity: movingTowardsVelocity))
+           && (movingAwayFunc == null || hand.MovingAwayFrom(movingAwayFunc.Invoke(), minVelocity: movingAwayVelocity))
     );
 
     public bool CheckHandAgainst(RagdollHand hand, Vector3 source, Direction direction, float amount = 0) {

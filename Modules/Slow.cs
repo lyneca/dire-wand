@@ -5,12 +5,12 @@ using ThunderRoad;
 namespace Wand; 
 
 public class Slow : WandSkill {
-    public override void OnInit() {
-        base.OnInit();
+    public override void Register() {
+        base.Register();
 
         wand.OnTargetEntity(step
             => step
-                .Then(wand.Offhand.Moving(Direction.Forward).Palm(Direction.Forward).Open)
+                .Then(wand.Offhand.At(Position.Chest).Moving(Direction.Forward).Palm(Direction.Forward).Gripping)
                 .Do(SlowEntity));
     }
 

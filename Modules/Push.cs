@@ -1,17 +1,19 @@
 ﻿using ExtensionMethods;
+using GestureEngine;
 using ThunderRoad;
 using UnityEngine;
 
 namespace Wand; 
 
-public class Flipendo : WandSkill {
+public class Push : WandSkill {
     public float creatureForce = 15f;
     public float itemForce = 10f;
-    public override void OnInit() {
-        base.OnInit();
+    public override void Register() {
+        base.Register();
         wand.OnTargetEntity(step => step
-            .ThenRepeatable(wand.Flick(wand.OutwardsDirection, wand.module.gestureVelocityLarge))
-            .Do(() => ShoveEntity(wand.target)));
+            .ThenRepeatable(wand.MainHand.Moving(Direction.Forward).Palm(Direction.Forward))
+            .Do(() => ShoveEntity(wand.target))
+            .Then(wand.Still()));
     }
 
     public void ShoveEntity(ThunderEntity entity) {
@@ -25,16 +27,14 @@ public class Flipendo : WandSkill {
         wand.PlaySound(SoundType.Foll, entity.RootTransform);
 
         var direction = (entity.Center - wand.tip.position).normalized;
-        if (Creature.AimAssist(entity.Center, direction, 10, 30, out var target, Filter.LiveNPCs))
+        if (Creature.AimAssist(entity.Center, direction, 10, 50, out var target, Filter.LiveNPCs))
         {
-            direction = target.position - entity.Center;
+            direction = (target.position - entity.Center).normalized;
         }
         else
         {
-            direction += Vector3.up * 0.5f; 
+            direction += Vector3.up * 0.1f; 
         }
-        // float floatMult = entity.Has<Floating>() ? 1.5f : 1;
-        entity.Inflict("WandFloating", this, 3f);
         if (entity is Creature creature) {
             creature.TryPush(Creature.PushType.Magic, direction * creatureForce, 4);
             if (!creature.isKilled)
@@ -42,6 +42,8 @@ public class Flipendo : WandSkill {
             creature.AddForce(direction * creatureForce, ForceMode.VelocityChange);
         } else if (entity is Item otherItem) {
             otherItem.physicBody.AddForce(direction * itemForce, ForceMode.VelocityChange);
+            otherItem.Throw(1, Item.FlyDetection.Forced);
+            otherItem.lastHandler = wand.holdingHand;
         }
 
         wand.module.shoveEffectData.Spawn(entity.transform).Play();

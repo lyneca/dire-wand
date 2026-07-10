@@ -6,7 +6,7 @@ using UnityEngine;
 namespace Wand; 
 
 public class Cantrip : WandSkill {
-    public override void OnInit() {
+    public override void Register() {
         wand.targetedItem
             .Then(() => wand.Buttoning, "Tap button")
             .Repeatable()

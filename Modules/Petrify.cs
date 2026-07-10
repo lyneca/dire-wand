@@ -6,8 +6,8 @@ using UnityEngine;
 namespace Wand; 
 
 public class Petrify : WandSkill {
-    public override void OnInit() {
-        base.OnInit();
+    public override void Register() {
+        base.Register();
         wand.targetedItem
             .Then(Gesture.Both.Palm(Direction.Forward).Moving(Direction.Forward))
             .Do(PetrifyEntity, "Freeze Item");

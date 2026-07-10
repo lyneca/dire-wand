@@ -8,11 +8,11 @@ namespace Wand;
 public class Pull : WandSkill {
     public float creatureForce = 15f;
     public float itemForce = 10f;
-    public override void OnInit() {
-        base.OnInit();
-        wand.OnTargetEntity(step => step
-            .ThenRepeatable(wand.Flick(wand.InwardsDirection, wand.module.gestureVelocityLarge))
-            .Do(() => PullEntity(wand.target)));
+    public override void Register() {
+        base.Register();
+        // wand.OnTargetEntity(step => step
+        //     .ThenRepeatable("Button Held", () => wand.Buttoning)
+        //     .Do(() => PullEntity(wand.target)));
     }
 
     public void PullEntity(ThunderEntity entity) {
@@ -31,6 +31,7 @@ public class Pull : WandSkill {
         {
             case Creature creature:
             {
+                creature.Poke();
                 creature.TryPush(Creature.PushType.Magic, direction * creatureForce, 4);
                 if (!creature.isKilled)
                     creature.ragdoll.SetState(Ragdoll.State.Destabilized);

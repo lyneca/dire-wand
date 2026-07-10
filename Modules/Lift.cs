@@ -12,16 +12,47 @@ public class Lift : WandSkill {
     protected Joint joint;
     public string liftEffectId = "WandLift";
     public EffectData liftEffectData;
+    private float distanceToCatch = 2f;
+    [ModOption("Pull Force"), ModOptionSlider, ModOptionFloatValues(0, 200, 10)]
+    public static float pullForce = 50f;
 
-    public override void OnInit() {
-        base.OnInit();
+    public enum State
+    {
+        None,
+        Pulling,
+        Lifting
+    }
+
+    public override void Register() {
+        base.Register();
         liftEffectData = Catalog.GetData<EffectData>(liftEffectId);
-        wand.OnTargetEntity(step => step
-            .Then("Tap button", () => wand.Buttoning)
-            .Do(LiftEntity, "Lift Entity"));
+        wand.OnTargetEntity(step =>
+        {
+            var pulling = step
+                .Then("Button held", () => wand.Buttoning)
+                .Do(StartPull);
+            pulling.Then(() => !wand.Buttoning).Do(() => state = State.None).ThenResetTo(step);
+            pulling.Then(() => wand.Buttoning && wand.target?.Center.DistanceSqr(wand.tip.position) is float distance
+                                              && distance < distanceToCatch * distanceToCatch)
+                .Do(LiftEntity, "Lift Entity");
+        });
         jointPoint = new GameObject().AddComponent<Rigidbody>();
         jointPoint.useGravity = false;
         jointPoint.isKinematic = true;
+    }
+
+    public void StartPull()
+    {
+        state = State.Pulling;
+        switch (wand.target)
+        {
+            case Item item:
+                break;
+            case Creature creature:
+                creature.ragdoll.forcePhysic.Add(this);
+                creature.ragdoll.SetState(Ragdoll.State.Destabilized);
+                break;
+        }
     }
 
     public override void OnUpdate() {
@@ -45,6 +76,16 @@ public class Lift : WandSkill {
             }
         }
 
+        if (wand.target && state == State.Pulling)
+        {
+            CollisionHandler handler = null;
+            if (wand.target is Creature creature)
+            {
+                handler = creature.ragdoll.rootPart.collisionHandler;
+            }
+            wand.target.AddForce((wand.tip.position - wand.target.Center).normalized * pullForce, ForceMode.Acceleration, handler);
+        }
+
         if (!joint) return;
         if (wand.target is not Item item) return;
         if (!item.isFlying)
@@ -55,14 +96,25 @@ public class Lift : WandSkill {
     public override void OnReset() {
         base.OnReset();
         wand.PlaySound(SoundType.Ragh);
+        state = State.None;
         Object.Destroy(joint);
+        switch (wand.target)
+        {
+            case Creature creature:
+                creature.ragdoll.forcePhysic.Remove(this);
+                creature.brain.RemoveNoStandUpModifier(this);
+                break;
+        }
     }
 
+    public State state;
     public void LiftEntity() {
         if (wand.target == null) {
             wand.Reset();
             return;
         }
+
+        state = State.Lifting;
         
         MarkCasted();
 
@@ -73,26 +125,26 @@ public class Lift : WandSkill {
         // line.Play();
             
         wand.PlaySound(SoundType.Legh, wand.TargetTransform);
+        
+        CollisionHandler handler = null;
+        if (wand.target is Creature { isKilled: false } creature)
+        {
+            handler = creature.ragdoll.rootPart.collisionHandler;
+            creature.ragdoll.forcePhysic.Add(this);
+            creature.ragdoll.SetState(Ragdoll.State.Destabilized);
+            creature.brain.AddNoStandUpModifier(this);
+        }
             
         wand.target.gameObject.GetComponent<FreezeModifier>()?.Clear();
 
         wand.target.ClearByType<Floating>();
         wand.target.Inflict("WandFloating", this);
+        wand.target.AddForce(Vector3.up * 2, ForceMode.VelocityChange, handler);
         wand.OnReset(() => {
             // wand.target.DropBreakables(wand, true);
             wand.target.Remove("WandFloating", this);
         });
         wand.UntilReset(() => wand.item.Haptic(wand.target.RootPhysicBody.velocity.magnitude.RemapClamp(0, 20f, 0, 0.5f)));
-        if (wand.target is Creature { isKilled: false } creature)
-            creature.ragdoll.SetState(Ragdoll.State.Destabilized);
-
-        /*
-         
-        wand.target.Release();
-        wand.target.Grab(true,
-            ,
-            _ => line.Despawn());
-        */
 
         float modifier = Mathf.Sqrt(wand.target.RootPhysicBody.mass);
         jointPoint.transform.position = wand.target.Center;
